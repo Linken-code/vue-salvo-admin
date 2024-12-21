@@ -68,8 +68,13 @@ const fetchUsers = async () => {
 
 const fetchRoles = async () => {
   try {
-    const response = await request.get('/roles')
-    allRoles.value = response.map(role => ({
+    const response = await request.get('/roles', {
+      params: {
+        page: 1,
+        page_size: 1000 // 获取所有角色
+      }
+    })
+    allRoles.value = response.items.map(role => ({
       key: role.id,
       label: role.name
     }))
@@ -81,7 +86,7 @@ const fetchRoles = async () => {
 const fetchUserRoles = async (userId) => {
   try {
     const response = await request.get(`/users/${userId}/roles`)
-    selectedRoles.value = response.map(role => role.id)
+    selectedRoles.value = response.roles.map(role => role.id)
   } catch (error) {
     ElMessage.error('获取用户角色失败')
   }
@@ -113,6 +118,15 @@ const handleRoles = async (row) => {
 }
 
 const handleDelete = (row) => {
+  // 禁止删除admin账号
+  if (row.username === 'admin') {
+    ElMessage.warning('系统管理员账号不能删除')
+    return
+  }
+
+  // 获取当前登录用户信息
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
+
   ElMessageBox.confirm('确认删除该用户吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
@@ -122,6 +136,13 @@ const handleDelete = (row) => {
       await request.delete(`/users/${row.id}`)
       ElMessage.success('删除成功')
       fetchUsers()
+
+      // 如果删除的是当前登录用户，则自动登出
+      if (currentUser.id === row.id) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        window.location.href = '/login'
+      }
     } catch (error) {
       ElMessage.error('删除失败')
     }
@@ -273,7 +294,7 @@ onMounted(() => {
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" />
         </el-form-item>
-        <el-form-item label="昵���" prop="nickname">
+        <el-form-item label="昵称" prop="nickname">
           <el-input v-model="form.nickname" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">

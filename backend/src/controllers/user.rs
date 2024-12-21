@@ -293,6 +293,7 @@ pub async fn create_user(req: &mut Request, res: &mut Response) {
     };
 
     let pool = req.extensions().get::<SqlitePool>().unwrap();
+    let hashed_password = hash_password(&user.password);
     match sqlx::query_as::<_, User>(
         r#"
         INSERT INTO users (username, password, nickname, email, avatar, status)
@@ -301,7 +302,7 @@ pub async fn create_user(req: &mut Request, res: &mut Response) {
         "#,
     )
     .bind(&user.username)
-    .bind(&user.password)
+    .bind(&hashed_password)
     .bind(&user.nickname)
     .bind(&user.email)
     .bind(&user.avatar)
@@ -480,7 +481,9 @@ pub async fn get_user_roles(req: &mut Request, res: &mut Response) {
     .await
     {
         Ok(roles) => {
-            res.render(Json(roles));
+            res.render(Json(json!({
+                "roles": roles
+            })));
         }
         Err(e) => {
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
@@ -517,7 +520,7 @@ pub async fn update_user_roles(req: &mut Request, res: &mut Response) {
         }
     };
 
-    // 删除现有角色
+    // 删除现有��色
     if let Err(e) = sqlx::query("DELETE FROM user_roles WHERE user_id = ?")
         .bind(user_id)
         .execute(&mut *tx)

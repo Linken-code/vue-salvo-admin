@@ -11,7 +11,8 @@ use crate::controllers::role::{
     create_role, get_role_permissions, get_roles, update_role, update_role_permissions,
 };
 use crate::controllers::user::{
-    create_user, get_current_user, get_users, login, update_password, update_profile,
+    create_user, delete_user, get_current_user, get_user_roles, get_users, login, update_password,
+    update_profile, update_user, update_user_roles,
 };
 use crate::middleware::auth::auth_middleware;
 
@@ -60,6 +61,16 @@ async fn main() {
             Router::with_path("users")
                 .get(get_users)
                 .post(create_user)
+                .push(
+                    Router::with_path("<id>")
+                        .put(update_user)
+                        .delete(delete_user)
+                        .push(
+                            Router::with_path("roles")
+                                .get(get_user_roles)
+                                .put(update_user_roles),
+                        ),
+                )
                 .hoop(auth_middleware),
         )
         .push(
