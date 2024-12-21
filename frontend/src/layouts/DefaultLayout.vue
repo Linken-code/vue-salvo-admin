@@ -2,11 +2,9 @@
   <div class="app-container" :style="{ '--aside-width': isCollapse ? '64px' : '200px' }">
     <el-container>
       <el-aside>
-        <div class="logo" :class="{ 'logo-collapse': isCollapse }">
-          <span v-if="!isCollapse">Vue Salvo Admin</span>
-          <el-icon v-else>
-            <Monitor />
-          </el-icon>
+        <div class="logo" :class="{ 'logo-collapse': isCollapse }" @click="goHome">
+          <img src="../assets/logo.svg" alt="Logo" class="logo-img" :class="{ 'logo-img-small': isCollapse }" />
+          <span v-if="!isCollapse" class="logo-text">Vue Salvo Admin</span>
         </div>
         <el-menu :default-active="route.path" class="el-menu-vertical" :collapse="isCollapse"
           :background-color="themeStore.isDark ? '#1d1e1f' : '#ffffff'"
@@ -143,6 +141,10 @@ const fetchUserInfo = async () => {
   }
 }
 
+const goHome = () => {
+  router.push('/')
+}
+
 onMounted(() => {
   fetchMenus()
   fetchUserInfo()
@@ -174,10 +176,34 @@ onMounted(() => {
   font-weight: bold;
   overflow: hidden;
   white-space: nowrap;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.logo:hover {
+  background-color: var(--menu-hover-bg);
+}
+
+.logo-img {
+  height: 32px;
+  width: auto;
+  margin-right: 8px;
+  transition: all 0.3s;
+}
+
+.logo-img-small {
+  height: 32px;
+  margin-right: 0;
+}
+
+.logo-text {
+  transition: all 0.3s;
 }
 
 .logo-collapse {
-  font-size: 24px;
+  padding: 10px 0;
+  justify-content: center;
 }
 
 .el-menu-vertical {
