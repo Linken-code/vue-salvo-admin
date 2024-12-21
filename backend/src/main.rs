@@ -12,7 +12,8 @@ use crate::controllers::role::{
     create_role, delete_role, get_role_permissions, get_roles, update_role, update_role_permissions,
 };
 use crate::controllers::user::{
-    create_user, delete_user, get_current_user, get_user, get_users, login, update_user,
+    create_user, delete_user, get_current_user, get_user, get_user_roles, get_users, login,
+    update_user, update_user_roles,
 };
 
 use salvo::cors::Cors;
@@ -75,7 +76,12 @@ async fn main() {
                     Router::with_path("<id>")
                         .get(get_user)
                         .put(update_user)
-                        .delete(delete_user),
+                        .delete(delete_user)
+                        .push(
+                            Router::with_path("roles")
+                                .get(get_user_roles)
+                                .put(update_user_roles),
+                        ),
                 ),
         )
         .push(

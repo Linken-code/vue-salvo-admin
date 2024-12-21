@@ -1,8 +1,13 @@
-use crate::models::{CreateUser, UpdatePasswordRequest, UpdateUser, User};
+use crate::models::{CreateUser, Role, UpdatePasswordRequest, UpdateUser, User};
 use crate::utils::password::{hash_password, verify_password};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use salvo::prelude::*;
 use sqlx::SqlitePool;
+
+#[derive(Debug, serde::Deserialize)]
+pub struct UserRoles {
+    pub role_ids: Vec<i64>,
+}
 
 #[handler]
 pub async fn login(req: &mut Request, res: &mut Response) {
@@ -404,4 +409,98 @@ pub async fn get_current_user(req: &mut Request, res: &mut Response) {
             })));
         }
     }
+}
+
+#[handler]
+pub async fn get_user_roles(req: &mut Request, res: &mut Response) {
+    let user_id = req.param::<i64>("id").unwrap();
+    let pool = req.extensions().get::<SqlitePool>().unwrap();
+
+    match sqlx::query_as::<_, Role>(
+        r#"
+        SELECT r.* FROM roles r
+        INNER JOIN user_roles ur ON ur.role_id = r.id
+        WHERE ur.user_id = ?
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(roles) => {
+            res.render(Json(roles));
+        }
+        Err(e) => {
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to fetch user roles: {}", e)
+            })));
+        }
+    }
+}
+
+#[handler]
+pub async fn update_user_roles(req: &mut Request, res: &mut Response) {
+    let user_id = req.param::<i64>("id").unwrap();
+    let user_roles: UserRoles = match req.parse_json().await {
+        Ok(data) => data,
+        Err(e) => {
+            res.status_code(StatusCode::BAD_REQUEST);
+            res.render(Json(serde_json::json!({
+                "error": format!("Invalid role data: {}", e)
+            })));
+            return;
+        }
+    };
+
+    let pool = req.extensions().get::<SqlitePool>().unwrap();
+    let mut tx = match pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to start transaction: {}", e)
+            })));
+            return;
+        }
+    };
+
+    // 删除现有角色
+    if let Err(e) = sqlx::query("DELETE FROM user_roles WHERE user_id = ?")
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+    {
+        res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+        res.render(Json(serde_json::json!({
+            "error": format!("Failed to delete existing roles: {}", e)
+        })));
+        return;
+    }
+
+    // 添加新角色
+    for role_id in user_roles.role_ids {
+        if let Err(e) = sqlx::query("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)")
+            .bind(user_id)
+            .bind(role_id)
+            .execute(&mut *tx)
+            .await
+        {
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to add new roles: {}", e)
+            })));
+            return;
+        }
+    }
+
+    if let Err(e) = tx.commit().await {
+        res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+        res.render(Json(serde_json::json!({
+            "error": format!("Failed to commit transaction: {}", e)
+        })));
+        return;
+    }
+
+    res.status_code(StatusCode::NO_CONTENT);
 }
