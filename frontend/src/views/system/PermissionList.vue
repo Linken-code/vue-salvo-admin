@@ -21,7 +21,11 @@
       <el-table-column prop="name" label="权限名称" width="180" />
       <el-table-column prop="code" label="权限代码" width="180" />
       <el-table-column prop="description" label="描述" />
-      <el-table-column prop="created_at" label="创建时间" width="180" />
+      <el-table-column prop="created_at" label="创建时间" width="180">
+        <template #default="{ row }">
+          {{ formatDateTime(row.created_at) }}
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -32,31 +36,14 @@
 
     <!-- 分页器 -->
     <div class="pagination">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        :total="total"
-        layout="total, sizes, prev, pager, next"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]"
+        :total="total" layout="total, sizes, prev, pager, next" @size-change="handleSizeChange"
+        @current-change="handlePageChange" />
     </div>
 
     <!-- 权限表单对话框 -->
-    <el-dialog
-      :title="dialogTitle"
-      v-model="dialogVisible"
-      width="500px"
-      @close="resetForm"
-    >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="80px"
-        style="max-width: 460px"
-      >
+    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px" @close="resetForm">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px" style="max-width: 460px">
         <el-form-item label="权限名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
@@ -81,6 +68,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
+import { formatDateTime } from '../../utils/format'
 
 const permissions = ref([])
 const dialogVisible = ref(false)
@@ -174,7 +162,7 @@ const resetForm = () => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {

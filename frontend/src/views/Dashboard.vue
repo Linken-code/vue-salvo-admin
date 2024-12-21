@@ -35,7 +35,7 @@ const trendOption = {
     xAxis: {
         type: 'category',
         boundaryGap: false,
-        data: ['周一', '周二', '周三', '���四', '周五', '周六', '周日'],
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
         axisLine: {
             lineStyle: {
                 color: 'rgba(128, 128, 128, 0.2)'
@@ -224,7 +224,7 @@ onMounted(() => {
 
 .statistic-card {
     height: 108px;
-    transition: transform 0.3s;
+    transition: var(--transition-all);
 }
 
 .statistic-card:hover {
@@ -245,7 +245,7 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     margin-right: 16px;
-    transition: transform 0.3s;
+    transition: var(--transition-all);
 }
 
 .statistic-card:hover .statistic-icon {
@@ -290,7 +290,7 @@ onMounted(() => {
 
 :deep(.el-card) {
     border: none;
-    transition: box-shadow 0.3s;
+    transition: var(--transition-all);
 }
 
 :deep(.el-card:hover) {

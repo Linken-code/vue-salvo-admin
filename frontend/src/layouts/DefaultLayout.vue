@@ -1,15 +1,16 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :style="{ '--aside-width': isCollapse ? '64px' : '200px' }">
     <el-container>
-      <el-aside :width="isCollapse ? '64px' : '200px'">
+      <el-aside>
         <div class="logo" :class="{ 'logo-collapse': isCollapse }">
           <span v-if="!isCollapse">Vue Salvo Admin</span>
           <el-icon v-else>
             <Monitor />
           </el-icon>
         </div>
-        <el-menu :default-active="route.path" class="el-menu-vertical" :collapse="isCollapse" background-color="#304156"
-          text-color="#bfcbd9" active-text-color="#409EFF" router>
+        <el-menu :default-active="route.path" class="el-menu-vertical" :collapse="isCollapse"
+          :background-color="themeStore.isDark ? '#1d1e1f' : '#ffffff'"
+          :text-color="themeStore.isDark ? '#cfd3dc' : '#303133'" :active-text-color="'var(--el-color-primary)'" router>
           <template v-for="menu in menus" :key="menu.id">
             <!-- 有子菜单的情况 -->
             <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.path">
@@ -44,6 +45,11 @@
             </el-icon>
           </div>
           <div class="header-right">
+            <el-button class="theme-switch" link @click="themeStore.toggleTheme()">
+              <el-icon>
+                <component :is="themeStore.isDark ? 'Sunny' : 'Moon'" />
+              </el-icon>
+            </el-button>
             <el-dropdown trigger="click">
               <span class="user-dropdown">
                 <el-avatar :size="32" :src="userInfo?.avatar">
@@ -76,11 +82,13 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Monitor, Expand, Fold } from '@element-plus/icons-vue'
+import { Monitor, Expand, Fold, Moon, Sunny } from '@element-plus/icons-vue'
+import { useThemeStore } from '../store/theme'
 import axios from 'axios'
 
 const route = useRoute()
 const router = useRouter()
+const themeStore = useThemeStore()
 const isCollapse = ref(false)
 const menus = ref([])
 const userInfo = ref(null)
@@ -151,8 +159,8 @@ onMounted(() => {
 }
 
 .el-aside {
-  background-color: #304156;
-  transition: width 0.3s;
+  background-color: var(--menu-bg);
+  width: var(--aside-width);
 }
 
 .logo {
@@ -160,11 +168,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #2b2f3a;
-  color: #fff;
+  background-color: var(--menu-bg);
+  color: var(--menu-text);
   font-size: 18px;
   font-weight: bold;
-  transition: all 0.3s;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -182,8 +189,8 @@ onMounted(() => {
 }
 
 .el-header {
-  background-color: #fff;
-  border-bottom: 1px solid #e6e6e6;
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -198,11 +205,10 @@ onMounted(() => {
 .collapse-btn {
   font-size: 20px;
   cursor: pointer;
-  transition: all 0.3s;
 }
 
 .collapse-btn:hover {
-  color: #409EFF;
+  color: var(--el-color-primary);
 }
 
 .header-right {
@@ -219,20 +225,31 @@ onMounted(() => {
 .username {
   margin-left: 8px;
   font-size: 14px;
+  color: var(--text-primary);
 }
 
 .el-main {
-  background-color: #f0f2f5;
+  background-color: var(--bg-color);
   padding: 20px;
 }
 
+/* 路由切换动画 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.theme-switch {
+  margin-right: 16px;
+  font-size: 20px;
+}
+
+.theme-switch:hover {
+  color: var(--el-color-primary);
 }
 </style>

@@ -34,7 +34,11 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="180" />
+      <el-table-column prop="created_at" label="创建时间" width="180">
+        <template #default="{ row }">
+          {{ formatDateTime(row.created_at) }}
+        </template>
+      </el-table-column>
       <el-table-column label="操作">
         <template #default="{ row }">
           <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
@@ -46,31 +50,14 @@
 
     <!-- 分页器 -->
     <div class="pagination">
-      <el-pagination
-        v-model:current-page="currentPage"
-        v-model:page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        :total="total"
-        layout="total, sizes, prev, pager, next"
-        @size-change="handleSizeChange"
-        @current-change="handlePageChange"
-      />
+      <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 50, 100]"
+        :total="total" layout="total, sizes, prev, pager, next" @size-change="handleSizeChange"
+        @current-change="handlePageChange" />
     </div>
 
     <!-- 角色表单对话框 -->
-    <el-dialog
-      :title="dialogTitle"
-      v-model="dialogVisible"
-      width="500px"
-      @close="resetForm"
-    >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="80px"
-        style="max-width: 460px"
-      >
+    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px" @close="resetForm">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px" style="max-width: 460px">
         <el-form-item label="角色名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
@@ -81,11 +68,7 @@
           <el-input v-model="form.description" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-switch
-            v-model="form.status"
-            :active-value="1"
-            :inactive-value="0"
-          />
+          <el-switch v-model="form.status" :active-value="1" :inactive-value="0" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -97,16 +80,8 @@
     </el-dialog>
 
     <!-- 权限分配对话框 -->
-    <el-dialog
-      title="分配权限"
-      v-model="permissionDialogVisible"
-      width="600px"
-    >
-      <el-transfer
-        v-model="selectedPermissions"
-        :data="allPermissions"
-        :titles="['可选权限', '已选权限']"
-      />
+    <el-dialog title="分配权限" v-model="permissionDialogVisible" width="600px">
+      <el-transfer v-model="selectedPermissions" :data="allPermissions" :titles="['可选权限', '已选权限']" />
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="permissionDialogVisible = false">取消</el-button>
@@ -121,6 +96,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
+import { formatDateTime } from '../../utils/format'
 
 const roles = ref([])
 const dialogVisible = ref(false)
@@ -252,7 +228,7 @@ const resetForm = () => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {

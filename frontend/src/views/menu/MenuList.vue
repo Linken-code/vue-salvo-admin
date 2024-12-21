@@ -100,7 +100,7 @@ const handleDelete = (row) => {
             ElMessage.error(error.message || '删除失败')
             console.error('Error:', error)
         }
-    }).catch(() => {})
+    }).catch(() => { })
 }
 
 // 提交表单
@@ -148,19 +148,15 @@ onMounted(() => {
         <div class="page-header">
             <h2>菜单管理</h2>
             <el-button type="primary" @click="handleAdd()">
-                <el-icon><Plus /></el-icon>新增菜单
+                <el-icon>
+                    <Plus />
+                </el-icon>新增菜单
             </el-button>
         </div>
 
         <el-card shadow="never">
-            <el-table
-                :data="tableData"
-                style="width: 100%"
-                v-loading="loading"
-                row-key="id"
-                default-expand-all
-                :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-            >
+            <el-table :data="tableData" style="width: 100%" v-loading="loading" row-key="id" default-expand-all
+                :tree-props="{ children: 'children', hasChildren: 'hasChildren' }">
                 <el-table-column prop="title" label="菜单名称" min-width="200">
                     <template #default="{ row }">
                         <el-icon v-if="row.icon" class="menu-icon">
@@ -183,13 +179,19 @@ onMounted(() => {
                 <el-table-column label="操作" width="250" align="center" fixed="right">
                     <template #default="{ row }">
                         <el-button link @click="handleAdd(row)">
-                            <el-icon><Plus /></el-icon>新增子菜单
+                            <el-icon>
+                                <Plus />
+                            </el-icon>新增子菜单
                         </el-button>
                         <el-button type="primary" link @click="handleEdit(row)">
-                            <el-icon><Edit /></el-icon>编辑
+                            <el-icon>
+                                <Edit />
+                            </el-icon>编辑
                         </el-button>
                         <el-button type="danger" link @click="handleDelete(row)">
-                            <el-icon><Delete /></el-icon>删除
+                            <el-icon>
+                                <Delete />
+                            </el-icon>删除
                         </el-button>
                     </template>
                 </el-table-column>
@@ -200,14 +202,8 @@ onMounted(() => {
         <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" destroy-on-close>
             <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px">
                 <el-form-item label="上级菜单" prop="parent_id">
-                    <el-tree-select
-                        v-model="formData.parent_id"
-                        :data="tableData"
-                        node-key="id"
-                        :props="{ label: 'title', value: 'id' }"
-                        placeholder="请选择上级菜单"
-                        clearable
-                    />
+                    <el-tree-select v-model="formData.parent_id" :data="tableData" node-key="id"
+                        :props="{ label: 'title', value: 'id' }" placeholder="请选择上级菜单" clearable />
                 </el-form-item>
                 <el-form-item label="路由名称" prop="name">
                     <el-input v-model="formData.name" placeholder="请输入路由名称" />
@@ -228,13 +224,8 @@ onMounted(() => {
                     <el-input-number v-model="formData.sort" :min="0" />
                 </el-form-item>
                 <el-form-item label="显示状态" prop="is_hidden">
-                    <el-switch
-                        v-model="formData.is_hidden"
-                        active-text="隐藏"
-                        inactive-text="显示"
-                        :active-value="true"
-                        :inactive-value="false"
-                    />
+                    <el-switch v-model="formData.is_hidden" active-text="隐藏" inactive-text="显示" :active-value="true"
+                        :inactive-value="false" />
                 </el-form-item>
             </el-form>
             <template #footer>

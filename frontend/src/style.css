@@ -1,35 +1,50 @@
 :root {
   /* 浅色主题 */
   --el-color-primary: #409eff;
-  --text-primary: #303133;
-  --text-regular: #606266;
-  --border-color: #dcdfe6;
+  --text-primary: var(--el-text-color-primary);
+  --text-regular: var(--el-text-color-regular);
+  --border-color: var(--el-border-color);
   --menu-bg: #ffffff;
-  --menu-text: #303133;
+  --menu-text: var(--el-text-color-primary);
   --menu-active: var(--el-color-primary);
-  --header-bg: #ffffff;
-  --bg-color: #f5f7fa;
-  --hover-bg: rgba(64, 158, 255, 0.1);
+  --header-bg: var(--el-bg-color);
+  --bg-color: var(--el-bg-color-page);
+  --hover-bg: var(--el-color-primary-light-9);
+  /* 添加全局颜色过渡 */
+  --transition-duration: 0.3s;
+  --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-all: all var(--transition-duration) var(--transition-timing);
 }
 
 html.dark {
   /* 深色主题 */
+  color-scheme: dark;
   --el-color-primary: #409eff;
-  --text-primary: #ffffff;
-  --text-regular: #cfd3dc;
-  --border-color: #363637;
+  --text-primary: var(--el-text-color-primary);
+  --text-regular: var(--el-text-color-regular);
+  --border-color: var(--el-border-color-darker);
   --menu-bg: #1d1e1f;
-  --menu-text: #cfd3dc;
+  --menu-text: var(--el-text-color-primary);
   --menu-active: var(--el-color-primary);
-  --header-bg: #1d1e1f;
-  --bg-color: #141414;
-  --hover-bg: rgba(64, 158, 255, 0.1);
+  --header-bg: var(--el-bg-color-overlay);
+  --bg-color: var(--el-bg-color-page);
+  --hover-bg: var(--el-color-primary-light-9);
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* 添加全局颜色过渡 */
+:root,
+:root *,
+::before,
+::after {
+  transition-duration: var(--transition-duration);
+  transition-timing-function: var(--transition-timing);
+  transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, box-shadow, transform;
 }
 
 body {
@@ -39,6 +54,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--text-primary);
+  background-color: var(--bg-color);
 }
 
 #app {
@@ -56,10 +72,16 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #909399;
+  background: var(--el-text-color-disabled);
   border-radius: 3px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #666;
+  background: var(--el-text-color-disabled);
+}
+
+/* 禁用特定元素的过渡动画 */
+.no-transition,
+.no-transition * {
+  transition: none !important;
 }

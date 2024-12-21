@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use time::OffsetDateTime;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Role {
@@ -9,8 +8,8 @@ pub struct Role {
     pub code: String,
     pub description: Option<String>,
     pub status: i32,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

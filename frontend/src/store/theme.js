@@ -13,8 +13,14 @@ export const useThemeStore = defineStore('theme', {
     },
     
     applyTheme() {
-      document.documentElement.classList.toggle('dark', this.isDark)
-      // 设置 Element Plus 主题
+      if (this.isDark) {
+        document.documentElement.classList.add('dark')
+        document.documentElement.setAttribute('data-theme', 'dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.removeAttribute('data-theme')
+      }
+      // 设置Element Plus主题
       document.documentElement.style.colorScheme = this.isDark ? 'dark' : 'light'
     },
     
