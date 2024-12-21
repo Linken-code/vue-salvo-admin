@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 渐变定义 -->
+  <defs>
+    <linearGradient id="vueGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#41B883;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3EAF7C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#34495E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="vueBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#35495E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#409EFF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 外层 V -->
+  <path d="
+    M64 8
+    L124 120
+    L98 120
+    L64 48
+    L30 120
+    L4 120
+    L64 8
+    Z
+  " fill="url(#vueGreen)"/>
+
+  <!-- 内层 S -->
+  <path d="
+    M64 48
+    L88 96
+    L72 96
+    L64 80
+    L56 96
+    L40 96
+    L64 48
+    Z
+  " fill="url(#vueBlue)"/>
+
+</svg> 
