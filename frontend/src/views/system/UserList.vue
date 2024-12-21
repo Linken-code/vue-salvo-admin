@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import request from '../../utils/request'
 import { formatDateTime } from '../../utils/format'
 
 const users = ref([])
@@ -52,15 +52,15 @@ const searchForm = ref({
 
 const fetchUsers = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/users', {
+    const response = await request.get('/users', {
       params: {
         page: currentPage.value,
         page_size: pageSize.value,
         ...searchForm.value
       }
     })
-    users.value = response.data.items
-    total.value = response.data.total
+    users.value = response.items
+    total.value = response.total
   } catch (error) {
     ElMessage.error('获取用户列表失败')
   }
@@ -68,8 +68,8 @@ const fetchUsers = async () => {
 
 const fetchRoles = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/roles')
-    allRoles.value = response.data.map(role => ({
+    const response = await request.get('/roles')
+    allRoles.value = response.map(role => ({
       key: role.id,
       label: role.name
     }))
@@ -80,8 +80,8 @@ const fetchRoles = async () => {
 
 const fetchUserRoles = async (userId) => {
   try {
-    const response = await axios.get(`http://localhost:3000/users/${userId}/roles`)
-    selectedRoles.value = response.data.map(role => role.id)
+    const response = await request.get(`/users/${userId}/roles`)
+    selectedRoles.value = response.map(role => role.id)
   } catch (error) {
     ElMessage.error('获取用户角色失败')
   }
@@ -119,7 +119,7 @@ const handleDelete = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await axios.delete(`http://localhost:3000/users/${row.id}`)
+      await request.delete(`/users/${row.id}`)
       ElMessage.success('删除成功')
       fetchUsers()
     } catch (error) {
@@ -148,10 +148,10 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         if (form.value.id) {
-          await axios.put(`http://localhost:3000/users/${form.value.id}`, form.value)
+          await request.put(`/users/${form.value.id}`, form.value)
           ElMessage.success('更新成功')
         } else {
-          await axios.post('http://localhost:3000/users', form.value)
+          await request.post('/users', form.value)
           ElMessage.success('添加成功')
         }
         dialogVisible.value = false
@@ -165,7 +165,7 @@ const handleSubmit = async () => {
 
 const handleRoleSubmit = async () => {
   try {
-    await axios.put(`http://localhost:3000/users/${currentUserId.value}/roles`, {
+    await request.put(`/users/${currentUserId.value}/roles`, {
       role_ids: selectedRoles.value
     })
     ElMessage.success('角色分配成功')
@@ -273,7 +273,7 @@ onMounted(() => {
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" />
         </el-form-item>
-        <el-form-item label="昵称" prop="nickname">
+        <el-form-item label="昵���" prop="nickname">
           <el-input v-model="form.nickname" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">

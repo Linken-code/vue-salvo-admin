@@ -95,7 +95,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import request from '../../utils/request'
 import { formatDateTime } from '../../utils/format'
 
 const roles = ref([])
@@ -139,15 +139,15 @@ const searchForm = ref({
 
 const fetchRoles = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/roles', {
+    const response = await request.get('/roles', {
       params: {
         page: currentPage.value,
         page_size: pageSize.value,
         ...searchForm.value
       }
     })
-    roles.value = response.data.items
-    total.value = response.data.total
+    roles.value = response.items
+    total.value = response.total
   } catch (error) {
     ElMessage.error('获取角色列表失败')
   }
@@ -155,8 +155,13 @@ const fetchRoles = async () => {
 
 const fetchPermissions = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/permissions')
-    allPermissions.value = response.data.map(permission => ({
+    const response = await request.get('/permissions', {
+      params: {
+        page: 1,
+        page_size: 1000 // 获取所有权限
+      }
+    })
+    allPermissions.value = response.items.map(permission => ({
       key: permission.id,
       label: permission.name
     }))
@@ -167,8 +172,8 @@ const fetchPermissions = async () => {
 
 const fetchRolePermissions = async (roleId) => {
   try {
-    const response = await axios.get(`http://localhost:3000/roles/${roleId}/permissions`)
-    selectedPermissions.value = response.data.map(permission => permission.id)
+    const response = await request.get(`/roles/${roleId}/permissions`)
+    selectedPermissions.value = response.permissions
   } catch (error) {
     ElMessage.error('获取角色权限失败')
   }
@@ -205,7 +210,7 @@ const handleDelete = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await axios.delete(`http://localhost:3000/roles/${row.id}`)
+      await request.delete(`/roles/${row.id}`)
       ElMessage.success('删除成功')
       fetchRoles()
     } catch (error) {
@@ -233,10 +238,10 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         if (form.value.id) {
-          await axios.put(`http://localhost:3000/roles/${form.value.id}`, form.value)
+          await request.put(`/roles/${form.value.id}`, form.value)
           ElMessage.success('更新成功')
         } else {
-          await axios.post('http://localhost:3000/roles', form.value)
+          await request.post('/roles', form.value)
           ElMessage.success('添加成功')
         }
         dialogVisible.value = false
@@ -250,9 +255,7 @@ const handleSubmit = async () => {
 
 const handlePermissionSubmit = async () => {
   try {
-    await axios.put(`http://localhost:3000/roles/${currentRoleId.value}/permissions`, {
-      permission_ids: selectedPermissions.value
-    })
+    await request.put(`/roles/${currentRoleId.value}/permissions`, selectedPermissions.value)
     ElMessage.success('权限分配成功')
     permissionDialogVisible.value = false
   } catch (error) {

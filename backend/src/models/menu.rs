@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use time::OffsetDateTime;
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Menu {
@@ -13,8 +12,8 @@ pub struct Menu {
     pub icon: Option<String>,
     pub sort: i32,
     pub is_hidden: bool,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,4 +26,4 @@ pub struct CreateMenu {
     pub icon: Option<String>,
     pub sort: i32,
     pub is_hidden: bool,
-} 
+}

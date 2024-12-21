@@ -6,7 +6,7 @@ use std::path::Path;
 
 pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     // 确保数据目录存在
-    let db_path = Path::new("../data");
+    let db_path = Path::new("data");
     if !db_path.exists() {
         fs::create_dir_all(db_path).expect("Failed to create database directory");
     }
@@ -17,9 +17,11 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     // 如果数据库文件不存在，创建一个空文件
     if !db_file.exists() {
         fs::File::create(&db_file).expect("Failed to create database file");
+        println!("Created new database file at: {}", db_file.display());
     }
 
     let pool = SqlitePool::connect(&db_url).await?;
+    println!("Connected to database at: {}", db_file.display());
 
     // 创建菜单表
     sqlx::query(
@@ -41,6 +43,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created menus table");
 
     // 创建用户表
     sqlx::query(
@@ -60,6 +63,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created users table");
 
     // 创建角色表
     sqlx::query(
@@ -77,6 +81,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created roles table");
 
     // 创建权限表
     sqlx::query(
@@ -93,6 +98,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created permissions table");
 
     // 创建角色-权限关联表
     sqlx::query(
@@ -110,6 +116,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created role_permissions table");
 
     // 创建用户-角色关联表
     sqlx::query(
@@ -127,6 +134,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
+    println!("Created user_roles table");
 
     // 检查是否已有菜单数据
     let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM menus")
@@ -135,6 +143,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 
     // 如果没有数据，添加初始菜单
     if count == 0 {
+        println!("Adding initial menu data...");
         // 添加仪表盘菜单
         sqlx::query(
             r#"
@@ -210,6 +219,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         .execute(&pool)
         .await?;
+        println!("Added initial menu data");
     }
 
     // 检查是否已有用户数据
@@ -219,6 +229,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 
     // 如果没有数据，添加默认管理员账号
     if user_count == 0 {
+        println!("Adding default admin user...");
         let password_hash = hash_password("admin123");
         sqlx::query(
             r#"
@@ -229,6 +240,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .bind(&password_hash)
         .execute(&pool)
         .await?;
+        println!("Created admin user with password: admin123");
     }
 
     // 检查是否已有权限数据
@@ -238,6 +250,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 
     // 如果没有数据，添加初始权限
     if permission_count == 0 {
+        println!("Adding initial permissions...");
         // 系统管理权限
         sqlx::query(
             r#"
@@ -252,6 +265,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         .execute(&pool)
         .await?;
+        println!("Added initial permissions");
     }
 
     // 检查是否已有角色数据
@@ -261,6 +275,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 
     // 如果没有数据，添加超级管理员角色
     if role_count == 0 {
+        println!("Adding super admin role...");
         // 添加超级管理员角色
         let role_id = sqlx::query_scalar::<_, i64>(
             r#"
@@ -307,6 +322,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .bind(role_id)
         .execute(&pool)
         .await?;
+        println!("Added super admin role and assigned to admin user");
     }
 
     Ok(pool)

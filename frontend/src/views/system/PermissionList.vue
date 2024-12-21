@@ -67,7 +67,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import axios from 'axios'
+import request from '../../utils/request'
 import { formatDateTime } from '../../utils/format'
 
 const permissions = ref([])
@@ -103,15 +103,15 @@ const searchForm = ref({
 
 const fetchPermissions = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/permissions', {
+    const response = await request.get('/permissions', {
       params: {
         page: currentPage.value,
         page_size: pageSize.value,
         ...searchForm.value
       }
     })
-    permissions.value = response.data.items
-    total.value = response.data.total
+    permissions.value = response.items
+    total.value = response.total
   } catch (error) {
     ElMessage.error('获取权限列表失败')
   }
@@ -140,7 +140,7 @@ const handleDelete = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await axios.delete(`http://localhost:3000/permissions/${row.id}`)
+      await request.delete(`/permissions/${row.id}`)
       ElMessage.success('删除成功')
       fetchPermissions()
     } catch (error) {
@@ -167,10 +167,10 @@ const handleSubmit = async () => {
     if (valid) {
       try {
         if (form.value.id) {
-          await axios.put(`http://localhost:3000/permissions/${form.value.id}`, form.value)
+          await request.put(`/permissions/${form.value.id}`, form.value)
           ElMessage.success('更新成功')
         } else {
-          await axios.post('http://localhost:3000/permissions', form.value)
+          await request.post('/permissions', form.value)
           ElMessage.success('添加成功')
         }
         dialogVisible.value = false

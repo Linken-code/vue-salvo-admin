@@ -1,4 +1,5 @@
 use salvo::prelude::*;
+use serde_json::json;
 use sqlx::SqlitePool;
 
 use crate::controllers::user::PageResponse;
@@ -129,62 +130,62 @@ pub async fn create_permission(req: &mut Request, res: &mut Response) {
 
 #[handler]
 pub async fn update_permission(req: &mut Request, res: &mut Response) {
-    let id: i64 = req.param::<String>("id").unwrap().parse().unwrap();
-    let permission: UpdatePermission = match req.parse_json().await {
+    let id = req.param::<i64>("id").unwrap();
+    let permission = match req.parse_json::<Permission>().await {
         Ok(permission) => permission,
         Err(e) => {
+            eprintln!("解析权限数据失败: {:?}", e);
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(Json(serde_json::json!({
-                "error": format!("Invalid permission data: {}", e)
+            res.render(Json(json!({
+                "message": format!("无效的权限数据: {}", e)
             })));
             return;
         }
     };
 
     let pool = req.extensions().get::<SqlitePool>().unwrap();
-    let mut query = String::from("UPDATE permissions SET ");
-    let mut values = Vec::new();
-    let mut params = Vec::new();
 
-    if let Some(name) = permission.name {
-        values.push("name = ?");
-        params.push(name);
-    }
-    if let Some(code) = permission.code {
-        values.push("code = ?");
-        params.push(code);
-    }
-    if let Some(description) = permission.description {
-        values.push("description = ?");
-        params.push(description);
-    }
+    // 更新权限
+    let result = sqlx::query(
+        "UPDATE permissions SET name = ?, code = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    )
+    .bind(&permission.name)
+    .bind(&permission.code)
+    .bind(&permission.description)
+    .bind(id)
+    .execute(pool)
+    .await;
 
-    if values.is_empty() {
-        res.status_code(StatusCode::BAD_REQUEST);
-        res.render(Json(serde_json::json!({
-            "error": "No fields to update"
-        })));
-        return;
-    }
+    match result {
+        Ok(_) => {
+            // 查询更新后的权限
+            let updated_permission =
+                sqlx::query_as::<_, Permission>("SELECT * FROM permissions WHERE id = ?")
+                    .bind(id)
+                    .fetch_one(pool)
+                    .await;
 
-    values.push("updated_at = CURRENT_TIMESTAMP");
-    query.push_str(&values.join(", "));
-    query.push_str(" WHERE id = ? RETURNING *");
-
-    let mut query_builder = sqlx::query_as::<_, Permission>(&query);
-    for param in params {
-        query_builder = query_builder.bind(param);
-    }
-    query_builder = query_builder.bind(id);
-
-    match query_builder.fetch_one(pool).await {
-        Ok(permission) => {
-            res.render(Json(permission));
+            match updated_permission {
+                Ok(permission) => {
+                    res.render(Json(json!({
+                        "message": "更新成功",
+                        "permission": permission
+                    })));
+                }
+                Err(e) => {
+                    eprintln!("获取更新后的权限失败: {:?}", e);
+                    res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+                    res.render(Json(json!({
+                        "message": format!("获取更新后的权限失败: {}", e)
+                    })));
+                }
+            }
         }
         Err(e) => {
+            eprintln!("更新权限失败: {:?}", e);
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Json(serde_json::json!({
-                "error": format!("Failed to update permission: {}", e)
+            res.render(Json(json!({
+                "message": format!("更新失败: {}", e)
             })));
         }
     }

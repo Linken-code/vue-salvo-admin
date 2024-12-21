@@ -1,173 +1,186 @@
+<template>
+  <div class="profile-container">
+    <el-card class="profile-card">
+      <template #header>
+        <div class="card-header">
+          <span>个人信息</span>
+          <el-button type="primary" @click="handleSave" :loading="loading">保存修改</el-button>
+        </div>
+      </template>
+
+      <el-form :model="form" label-width="100px" class="profile-form">
+        <el-form-item label="头像">
+          <el-upload class="avatar-uploader" action="http://localhost:3000/upload"
+            :headers="{ Authorization: `Bearer ${token}` }" name="file" :show-file-list="false"
+            :on-success="handleAvatarSuccess" :on-error="handleAvatarError" :before-upload="beforeAvatarUpload">
+            <el-avatar v-if="form.avatar" :size="100" :src="getAvatarUrl(form.avatar)" />
+            <el-avatar v-else :size="100">{{ form.nickname?.charAt(0) }}</el-avatar>
+            <div class="upload-tip">点击上传</div>
+          </el-upload>
+        </el-form-item>
+
+        <el-form-item label="用户名">
+          <el-input v-model="form.username" disabled />
+        </el-form-item>
+
+        <el-form-item label="昵称">
+          <el-input v-model="form.nickname" />
+        </el-form-item>
+
+        <el-form-item label="邮箱">
+          <el-input v-model="form.email" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+  </div>
+</template>
+
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
+import request from '../../utils/request'
+import emitter from '../../utils/eventBus'
 
-const router = useRouter()
-const userInfo = ref(null)
-const loading = ref(false)
-const formRef = ref(null)
-const passwordFormRef = ref(null)
-const passwordDialogVisible = ref(false)
-
-const formData = ref({
+const form = ref({
+  username: '',
   nickname: '',
   email: '',
   avatar: ''
 })
 
-const passwordForm = ref({
-  old_password: '',
-  new_password: '',
-  confirm_password: ''
-})
-
-const rules = {
-  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
-  email: [{ type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }]
-}
-
-const passwordRules = {
-  old_password: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
-  new_password: [{ required: true, message: '请输入新密码', trigger: 'blur' }],
-  confirm_password: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
-    {
-      validator: (rule, value, callback) => {
-        if (value !== passwordForm.value.new_password) {
-          callback(new Error('两次输入的密码不一致'))
-        } else {
-          callback()
-        }
-      },
-      trigger: 'blur'
-    }
-  ]
-}
+const loading = ref(false)
+const token = localStorage.getItem('token')
 
 // 获取用户信息
 const fetchUserInfo = async () => {
-  const token = localStorage.getItem('token')
-  if (!token) {
-    ElMessage.error('用户未登录')
-    router.push('/login')
-    return
-  }
-
   try {
-    // 先获取当前用户信息
-    const currentUserResponse = await axios.get('http://localhost:3000/auth/current-user', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-    userInfo.value = currentUserResponse.data
-
-    // 获取用户详细信息
-    const response = await axios.get(`http://localhost:3000/users/${userInfo.value.id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-    const data = response.data
-    formData.value = {
-      nickname: data.nickname,
-      email: data.email || '',
-      avatar: data.avatar || ''
+    const response = await request.get('/auth/current-user')
+    const { user } = response
+    form.value = {
+      username: user.username,
+      nickname: user.nickname,
+      email: user.email,
+      avatar: user.avatar
     }
   } catch (error) {
     ElMessage.error('获取用户信息失败')
-    console.error('Error:', error)
-    router.push('/login')
   }
 }
 
 // 保存个人信息
 const handleSave = async () => {
-  if (!formRef.value || !userInfo.value) return
-
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const token = localStorage.getItem('token')
-        const response = await axios.put(
-          `http://localhost:3000/users/${userInfo.value.id}`,
-          {
-            ...formData.value,
-            status: 1
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
-
-        if (response.status === 200) {
-          // 更新本地存储的用户信息
-          const newUserInfo = {
-            ...userInfo.value,
-            ...formData.value
-          }
-          localStorage.setItem('userInfo', JSON.stringify(newUserInfo))
-          ElMessage.success('保存成功')
-        } else {
-          throw new Error('保存失败')
-        }
-      } catch (error) {
-        ElMessage.error('保存失败')
-        console.error('Error:', error)
-      } finally {
-        loading.value = false
-      }
+  try {
+    loading.value = true
+    const data = {
+      nickname: form.value.nickname,
+      email: form.value.email
     }
-  })
+    if (form.value.avatar) {
+      data.avatar = form.value.avatar
+    }
+    const response = await request.patch('/profile', data)
+    if (response.user) {
+      ElMessage.success('保存成功')
+      // 更新本地存储的用户信息
+      const userInfo = {
+        id: response.user.id,
+        username: response.user.username,
+        nickname: response.user.nickname,
+        email: response.user.email,
+        avatar: response.user.avatar,
+        status: response.user.status,
+        created_at: response.user.created_at,
+        updated_at: response.user.updated_at
+      }
+      localStorage.setItem('user', JSON.stringify(userInfo))
+      // 通知其他组件用户信息已更新
+      emitter.emit('user-updated', userInfo)
+    } else {
+      throw new Error('更新失败：服务器返回数据格式不正确')
+    }
+  } catch (error) {
+    console.error('更新个人信息失败:', error)
+    if (error.response?.data?.message) {
+      ElMessage.error(`更新失败：${error.response.data.message}`)
+    } else if (error.message) {
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('更新失败：未知错误')
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
-// 修改密码
-const handleUpdatePassword = async () => {
-  if (!passwordFormRef.value || !userInfo.value) return
+// 头像上传前的验证
+const beforeAvatarUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
 
-  await passwordFormRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true
-      try {
-        const token = localStorage.getItem('token')
-        const response = await axios.post(
-          `http://localhost:3000/users/${userInfo.value.id}/password`,
-          {
-            old_password: passwordForm.value.old_password,
-            new_password: passwordForm.value.new_password
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
+    return false
+  }
+  return true
+}
 
-        if (response.status === 200) {
-          ElMessage.success('密码修改成功')
-          passwordDialogVisible.value = false
-          // 清空表单
-          passwordForm.value = {
-            old_password: '',
-            new_password: '',
-            confirm_password: ''
-          }
-        } else {
-          throw new Error('原密码错误')
-        }
-      } catch (error) {
-        ElMessage.error('原密码错误')
-        console.error('Error:', error)
-      } finally {
-        loading.value = false
-      }
+// 获取头像完整URL
+const getAvatarUrl = (avatar) => {
+  if (!avatar) return ''
+  return avatar.startsWith('http') ? avatar : `http://localhost:3000${avatar}`
+}
+
+// 头像上传成功的回调
+const handleAvatarSuccess = async (response) => {
+  try {
+    // 先更新本地表单的头像
+    form.value.avatar = response.url
+    // 构造更新请求数据，只包含头像字段
+    const data = {
+      avatar: response.url  // 只传递头像字段
     }
-  })
+    console.log('更新头像数据:', data)  // 调试日志
+    const result = await request.patch('/profile', data)
+
+    if (result.user) {
+      ElMessage.success('头像更新成功')
+      // 更新本地存储的用户信息
+      const userInfo = {
+        id: result.user.id,
+        username: result.user.username,
+        nickname: result.user.nickname,
+        email: result.user.email,
+        avatar: result.user.avatar,
+        status: result.user.status,
+        created_at: result.user.created_at,
+        updated_at: result.user.updated_at
+      }
+      localStorage.setItem('user', JSON.stringify(userInfo))
+      // 通知其他组件用户信息已更新
+      emitter.emit('user-updated', userInfo)
+    } else {
+      throw new Error('服务器返回数据格式不正确')
+    }
+  } catch (error) {
+    console.error('更新头像失败:', error)
+    if (error.response?.data?.message) {
+      ElMessage.error(`头像更新失败: ${error.response.data.message}`)
+    } else {
+      ElMessage.error(error.message || '头像更新失败')
+    }
+    // 如果更新失败，恢复原来的头像
+    form.value.avatar = form.value.avatar || ''
+  }
+}
+
+// 头像上传失败的回调
+const handleAvatarError = (error) => {
+  console.error('Upload error:', error)
+  ElMessage.error(error.response?.data?.message || '头像上传失败')
 }
 
 onMounted(() => {
@@ -175,78 +188,40 @@ onMounted(() => {
 })
 </script>
 
-<template>
-  <div class="profile">
-    <div class="page-header">
-      <h2>个人信息</h2>
-    </div>
-
-    <el-card shadow="never">
-      <el-form ref="formRef" :model="formData" :rules="rules" label-width="100px" class="profile-form">
-        <el-form-item label="用户名">
-          <el-input :model-value="userInfo?.username" disabled />
-        </el-form-item>
-        <el-form-item label="昵称" prop="nickname">
-          <el-input v-model="formData.nickname" placeholder="请输入昵称" />
-        </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="formData.email" placeholder="请输入邮箱" />
-        </el-form-item>
-        <el-form-item label="头像" prop="avatar">
-          <el-input v-model="formData.avatar" placeholder="请输入头像地址" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="loading" @click="handleSave">
-            保存
-          </el-button>
-          <el-button @click="passwordDialogVisible = true">修改密码</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 修改密码对话框 -->
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="500px" destroy-on-close>
-      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
-        <el-form-item label="原密码" prop="old_password">
-          <el-input v-model="passwordForm.old_password" type="password" placeholder="请输入原密码" show-password />
-        </el-form-item>
-        <el-form-item label="新密码" prop="new_password">
-          <el-input v-model="passwordForm.new_password" type="password" placeholder="请输入新密码" show-password />
-        </el-form-item>
-        <el-form-item label="确认密码" prop="confirm_password">
-          <el-input v-model="passwordForm.confirm_password" type="password" placeholder="请确认新密码" show-password />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="loading" @click="handleUpdatePassword">
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
-  </div>
-</template>
-
 <style scoped>
-.profile {
+.profile-container {
   padding: 20px;
 }
 
-.page-header {
-  margin-bottom: 24px;
+.profile-card {
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.page-header h2 {
-  margin: 0;
-  font-size: 24px;
-  color: var(--text-primary);
-}
-
-:deep(.el-card) {
-  border: none;
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .profile-form {
-  max-width: 600px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.avatar-uploader {
+  text-align: center;
+  cursor: pointer;
+}
+
+.upload-tip {
+  margin-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
+
+.el-avatar {
+  display: block;
+  margin: 0 auto;
 }
 </style>

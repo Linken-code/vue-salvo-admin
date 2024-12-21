@@ -14,6 +14,12 @@
   --transition-duration: 0.3s;
   --transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
   --transition-all: all var(--transition-duration) var(--transition-timing);
+  --el-menu-bg-color: var(--el-bg-color);
+  --el-menu-hover-bg-color: var(--el-fill-color-light);
+  --el-menu-active-color: var(--el-color-primary);
+  --el-menu-text-color: var(--el-text-color-primary);
+  --el-menu-hover-text-color: var(--el-color-primary);
+  --el-menu-active-bg-color: var(--el-color-primary-light-9);
 }
 
 html.dark {
@@ -29,6 +35,15 @@ html.dark {
   --header-bg: var(--el-bg-color-overlay);
   --bg-color: var(--el-bg-color-page);
   --hover-bg: var(--el-color-primary-light-9);
+  --el-bg-color: #141414;
+  --el-bg-color-overlay: #1d1e1f;
+  --el-text-color-primary: #e5eaf3;
+  --el-text-color-regular: #cfd3dc;
+  --el-text-color-secondary: #a3a6ad;
+  --el-border-color-base: #4c4d4f;
+  --el-border-color-light: #363637;
+  --el-fill-color-blank: #191919;
+  --el-mask-color: rgba(0, 0, 0, 0.8);
 }
 
 * {
@@ -84,4 +99,167 @@ body {
 .no-transition,
 .no-transition * {
   transition: none !important;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--el-text-color-disabled);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-text-color-secondary);
+}
+
+/* Element Plus 样式覆盖 */
+.el-menu {
+  --el-menu-bg-color: var(--el-bg-color);
+  --el-menu-hover-bg-color: var(--el-fill-color-light);
+  --el-menu-active-color: var(--el-color-primary);
+  --el-menu-text-color: var(--el-text-color-primary);
+  --el-menu-hover-text-color: var(--el-color-primary);
+  --el-menu-active-bg-color: var(--el-color-primary-light-9);
+}
+
+.el-menu-item.is-active {
+  background-color: var(--el-menu-active-bg-color);
+}
+
+.el-card {
+  --el-card-bg-color: var(--el-bg-color-overlay);
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.el-card:hover {
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.15);
+}
+
+.el-table {
+  --el-table-header-bg-color: var(--el-bg-color-overlay);
+  --el-table-row-hover-bg-color: var(--el-fill-color-light);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-pagination {
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+/* 页面过渡动画 */
+.fade-transform-enter-active,
+.fade-transform-leave-active {
+  transition: all 0.3s;
+}
+
+.fade-transform-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* 页面布局 */
+.page-container {
+  padding: 20px;
+  background-color: var(--el-fill-color-blank);
+  border-radius: 8px;
+  min-height: calc(100vh - 180px);
+}
+
+.page-header {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-bar {
+  display: flex;
+  gap: 16px;
+}
+
+.action-bar {
+  display: flex;
+  gap: 8px;
+}
+
+/* 表单样式 */
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.form-footer {
+  margin-top: 40px;
+  text-align: center;
+}
+
+/* 响应式布局 */
+@media screen and (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .search-bar {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .action-bar {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .form-container {
+    padding: 10px;
+  }
 }
