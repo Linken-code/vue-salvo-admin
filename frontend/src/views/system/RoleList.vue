@@ -1,45 +1,91 @@
 <template>
   <div class="role-list">
     <div class="header">
-      <el-button type="primary" @click="showCreateDialog">新建角色</el-button>
+      <el-form :inline="true" :model="searchForm" class="search-form">
+        <el-form-item label="角色名称">
+          <el-input v-model="searchForm.name" placeholder="请输入角色名称" clearable />
+        </el-form-item>
+        <el-form-item label="角色代码">
+          <el-input v-model="searchForm.code" placeholder="请输入角色代码" clearable />
+        </el-form-item>
+        <el-form-item label="状态" class="status-item">
+          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px;">
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+      <el-button type="primary" @click="handleAdd">添加角色</el-button>
     </div>
 
-    <el-table :data="roles" style="width: 100%" v-loading="loading">
+    <el-table :data="roles" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="name" label="角色名称" width="180" />
-      <el-table-column prop="code" label="角色编码" width="180" />
+      <el-table-column prop="code" label="角色代码" width="180" />
       <el-table-column prop="description" label="描述" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'">
+          <el-tag :type="row.status === 1 ? 'success' : 'danger'">
             {{ row.status === 1 ? '启用' : '禁用' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="250">
+      <el-table-column prop="created_at" label="创建时间" width="180" />
+      <el-table-column label="操作">
         <template #default="{ row }">
-          <el-button type="primary" size="small" @click="showPermissionDialog(row)">权限设置</el-button>
-          <el-button type="primary" size="small" @click="showEditDialog(row)">编辑</el-button>
-          <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" link @click="handlePermissions(row)">权限</el-button>
+          <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- 创建/编辑角色对话框 -->
-    <el-dialog :title="dialogType === 'create' ? '新建角色' : '编辑角色'" v-model="dialogVisible" width="500px">
-      <el-form :model="roleForm" :rules="rules" ref="roleFormRef" label-width="100px">
+    <!-- 分页器 -->
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
+
+    <!-- 角色表单对话框 -->
+    <el-dialog
+      :title="dialogTitle"
+      v-model="dialogVisible"
+      width="500px"
+      @close="resetForm"
+    >
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-width="80px"
+        style="max-width: 460px"
+      >
         <el-form-item label="角色名称" prop="name">
-          <el-input v-model="roleForm.name" />
+          <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="角色编码" prop="code">
-          <el-input v-model="roleForm.code" />
+        <el-form-item label="角色代码" prop="code">
+          <el-input v-model="form.code" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="roleForm.description" type="textarea" />
+          <el-input v-model="form.description" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-switch v-model="roleForm.status" :active-value="1" :inactive-value="0" active-text="启用"
-            inactive-text="禁用" />
+          <el-switch
+            v-model="form.status"
+            :active-value="1"
+            :inactive-value="0"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -50,10 +96,17 @@
       </template>
     </el-dialog>
 
-    <!-- 权限设置对话框 -->
-    <el-dialog title="权限设置" v-model="permissionDialogVisible" width="500px">
-      <el-tree ref="permissionTree" :data="permissions" show-checkbox node-key="id" :props="{ label: 'name' }"
-        :default-checked-keys="selectedPermissions" />
+    <!-- 权限分配对话框 -->
+    <el-dialog
+      title="分配权限"
+      v-model="permissionDialogVisible"
+      width="600px"
+    >
+      <el-transfer
+        v-model="selectedPermissions"
+        :data="allPermissions"
+        :titles="['可选权限', '已选权限']"
+      />
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="permissionDialogVisible = false">取消</el-button>
@@ -70,17 +123,18 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 
 const roles = ref([])
-const permissions = ref([])
-const loading = ref(false)
 const dialogVisible = ref(false)
 const permissionDialogVisible = ref(false)
-const dialogType = ref('create')
-const selectedPermissions = ref([])
-const currentRole = ref(null)
-const permissionTree = ref(null)
-const roleFormRef = ref(null)
+const dialogTitle = ref('')
+const formRef = ref()
+const currentRoleId = ref(null)
 
-const roleForm = ref({
+// 分页相关
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+const form = ref({
   name: '',
   code: '',
   description: '',
@@ -88,129 +142,176 @@ const roleForm = ref({
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入角色编码', trigger: 'blur' }]
+  name: [
+    { required: true, message: '请输入角色名称', trigger: 'blur' }
+  ],
+  code: [
+    { required: true, message: '请输入角色代码', trigger: 'blur' }
+  ]
 }
 
-// 获取角色列表
+// 权限相关
+const allPermissions = ref([])
+const selectedPermissions = ref([])
+
+// 搜索表单
+const searchForm = ref({
+  name: '',
+  code: '',
+  status: ''
+})
+
 const fetchRoles = async () => {
-  loading.value = true
   try {
-    const response = await axios.get('http://localhost:3000/roles')
-    roles.value = response.data
+    const response = await axios.get('http://localhost:3000/roles', {
+      params: {
+        page: currentPage.value,
+        page_size: pageSize.value,
+        ...searchForm.value
+      }
+    })
+    roles.value = response.data.items
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('获取角色列表失败')
-  } finally {
-    loading.value = false
   }
 }
 
-// 获取权限列表
 const fetchPermissions = async () => {
   try {
     const response = await axios.get('http://localhost:3000/permissions')
-    permissions.value = response.data
+    allPermissions.value = response.data.map(permission => ({
+      key: permission.id,
+      label: permission.name
+    }))
   } catch (error) {
     ElMessage.error('获取权限列表失败')
   }
 }
 
-// 获取角色的权限
 const fetchRolePermissions = async (roleId) => {
   try {
     const response = await axios.get(`http://localhost:3000/roles/${roleId}/permissions`)
-    selectedPermissions.value = response.data
+    selectedPermissions.value = response.data.map(permission => permission.id)
   } catch (error) {
     ElMessage.error('获取角色权限失败')
   }
 }
 
-// 显示创建对话框
-const showCreateDialog = () => {
-  dialogType.value = 'create'
-  roleForm.value = {
+const handleAdd = () => {
+  dialogTitle.value = '添加角色'
+  dialogVisible.value = true
+  form.value = {
     name: '',
     code: '',
     description: '',
     status: 1
   }
-  dialogVisible.value = true
 }
 
-// 显示编辑对话框
-const showEditDialog = (row) => {
-  dialogType.value = 'edit'
-  roleForm.value = { ...row }
+const handleEdit = (row) => {
+  dialogTitle.value = '编辑角色'
   dialogVisible.value = true
+  form.value = { ...row }
 }
 
-// 显示权限设置对话框
-const showPermissionDialog = async (row) => {
-  currentRole.value = row
-  await fetchRolePermissions(row.id)
+const handlePermissions = async (row) => {
+  currentRoleId.value = row.id
   permissionDialogVisible.value = true
+  await fetchPermissions()
+  await fetchRolePermissions(row.id)
 }
 
-// 提交角色表单
-const handleSubmit = async () => {
-  if (!roleFormRef.value) return
+const handleDelete = (row) => {
+  ElMessageBox.confirm('确认删除该角色吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await axios.delete(`http://localhost:3000/roles/${row.id}`)
+      ElMessage.success('删除成功')
+      fetchRoles()
+    } catch (error) {
+      ElMessage.error('删除失败')
+    }
+  })
+}
 
-  await roleFormRef.value.validate(async (valid) => {
+const resetForm = () => {
+  if (formRef.value) {
+    formRef.value.resetFields()
+  }
+  form.value = {
+    name: '',
+    code: '',
+    description: '',
+    status: 1
+  }
+}
+
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        if (dialogType.value === 'create') {
-          await axios.post('http://localhost:3000/roles', roleForm.value)
-          ElMessage.success('创建成功')
-        } else {
-          await axios.put(`http://localhost:3000/roles/${roleForm.value.id}`, roleForm.value)
+        if (form.value.id) {
+          await axios.put(`http://localhost:3000/roles/${form.value.id}`, form.value)
           ElMessage.success('更新成功')
+        } else {
+          await axios.post('http://localhost:3000/roles', form.value)
+          ElMessage.success('添加成功')
         }
         dialogVisible.value = false
         fetchRoles()
       } catch (error) {
-        ElMessage.error(dialogType.value === 'create' ? '创建失败' : '更新失败')
+        ElMessage.error(form.value.id ? '更新失败' : '添加失败')
       }
     }
   })
 }
 
-// 删除角色
-const handleDelete = (row) => {
-  ElMessageBox.confirm('确认删除该角色吗？', '提示', {
-    type: 'warning'
-  })
-    .then(async () => {
-      try {
-        await axios.delete(`http://localhost:3000/roles/${row.id}`)
-        ElMessage.success('删除成功')
-        fetchRoles()
-      } catch (error) {
-        ElMessage.error('删除失败')
-      }
-    })
-    .catch(() => { })
-}
-
-// 提交权限设置
 const handlePermissionSubmit = async () => {
-  if (!currentRole.value || !permissionTree.value) return
-
   try {
-    const checkedKeys = permissionTree.value.getCheckedKeys()
-    await axios.put(`http://localhost:3000/roles/${currentRole.value.id}/permissions`, {
-      role_id: currentRole.value.id,
-      permission_ids: checkedKeys
+    await axios.put(`http://localhost:3000/roles/${currentRoleId.value}/permissions`, {
+      permission_ids: selectedPermissions.value
     })
-    ElMessage.success('权限设置成功')
+    ElMessage.success('权限分配成功')
     permissionDialogVisible.value = false
   } catch (error) {
-    ElMessage.error('权限设置失败')
+    ElMessage.error('权限分配失败')
   }
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+  fetchRoles()
+}
+
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchRoles()
+}
+
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchRoles()
+}
+
+const handleReset = () => {
+  searchForm.value = {
+    name: '',
+    code: '',
+    status: ''
+  }
+  currentPage.value = 1
+  fetchRoles()
 }
 
 onMounted(() => {
   fetchRoles()
-  fetchPermissions()
 })
 </script>
 
@@ -221,6 +322,30 @@ onMounted(() => {
 
 .header {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.search-form {
+  flex: 1;
+  margin-right: 16px;
+}
+
+.search-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+  margin-right: 16px;
+}
+
+.search-form :deep(.el-input),
+.search-form :deep(.el-select) {
+  width: 180px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .dialog-footer {

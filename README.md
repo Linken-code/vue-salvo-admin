@@ -73,7 +73,7 @@ cargo run
 - 前端开发服务器: http://localhost:5173
 - 后端API服务器: http://localhost:3000
 
-## 项目结构
+## 项目��构
 ```
 frontend/          # 前端项目
 ├── src/          # 源码目录
@@ -99,7 +99,7 @@ backend/          # 后端项目
 ### 用户相关
 - `POST /auth/login` - 用户登录
 - `GET /auth/current-user` - 获取当前用户信息
-- `GET /users` - 获取用户列表
+- `GET /users?page=1&page_size=10` - 获取用户列表（分页）
 - `POST /users` - 创建用户
 - `PUT /users/:id` - 更新用户信息
 - `DELETE /users/:id` - 删除用户

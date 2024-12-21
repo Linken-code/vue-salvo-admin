@@ -10,6 +10,11 @@ const dialogTitle = ref('')
 const formRef = ref()
 const currentUserId = ref(null)
 
+// 分页相关
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+
 const form = ref({
   username: '',
   nickname: '',
@@ -36,10 +41,25 @@ const rules = {
 const allRoles = ref([])
 const selectedRoles = ref([])
 
+// 搜索表单
+const searchForm = ref({
+  username: '',
+  nickname: '',
+  email: '',
+  status: ''
+})
+
 const fetchUsers = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/users')
-    users.value = response.data
+    const response = await axios.get('http://localhost:3000/users', {
+      params: {
+        page: currentPage.value,
+        page_size: pageSize.value,
+        ...searchForm.value
+      }
+    })
+    users.value = response.data.items
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('获取用户列表失败')
   }
@@ -154,6 +174,33 @@ const handleRoleSubmit = async () => {
   }
 }
 
+const handlePageChange = (page) => {
+  currentPage.value = page
+  fetchUsers()
+}
+
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchUsers()
+}
+
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchUsers()
+}
+
+const handleReset = () => {
+  searchForm.value = {
+    username: '',
+    nickname: '',
+    email: '',
+    status: ''
+  }
+  currentPage.value = 1
+  fetchUsers()
+}
+
 onMounted(() => {
   fetchUsers()
 })
@@ -162,6 +209,27 @@ onMounted(() => {
 <template>
   <div class="user-list">
     <div class="header">
+      <el-form :inline="true" :model="searchForm" class="search-form">
+        <el-form-item label="用户名">
+          <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
+        </el-form-item>
+        <el-form-item label="昵称">
+          <el-input v-model="searchForm.nickname" placeholder="请输入昵称" clearable />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="searchForm.email" placeholder="请输入邮箱" clearable />
+        </el-form-item>
+        <el-form-item label="状态" class="status-item">
+          <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px;">
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
       <el-button type="primary" @click="handleAdd">添加用户</el-button>
     </div>
 
@@ -186,6 +254,19 @@ onMounted(() => {
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 分页器 -->
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+      />
+    </div>
 
     <!-- 用户表单对话框 -->
     <el-dialog
@@ -257,6 +338,30 @@ onMounted(() => {
 
 .header {
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.search-form {
+  flex: 1;
+  margin-right: 16px;
+}
+
+.search-form :deep(.el-form-item) {
+  margin-bottom: 16px;
+  margin-right: 16px;
+}
+
+.search-form :deep(.el-input),
+.search-form :deep(.el-select) {
+  width: 180px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .dialog-footer {
