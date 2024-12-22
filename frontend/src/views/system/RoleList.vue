@@ -204,6 +204,12 @@ const handlePermissions = async (row) => {
 }
 
 const handleDelete = (row) => {
+  // 禁止删除超级管理员角色
+  if (row.code === 'super_admin') {
+    ElMessage.warning('超级管理员角色不能删除')
+    return
+  }
+
   ElMessageBox.confirm('确认删除该角色吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',

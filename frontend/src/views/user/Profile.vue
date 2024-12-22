@@ -38,8 +38,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import request from '../../utils/request'
-import emitter from '../../utils/eventBus'
+import request, { handleRequestError } from '../../utils/request'
+import { updateUserInfo } from '../../utils/user'
 
 const form = ref({
   username: '',
@@ -63,7 +63,7 @@ const fetchUserInfo = async () => {
       avatar: user.avatar
     }
   } catch (error) {
-    ElMessage.error('获取用户信息失败')
+    handleRequestError(error)
   }
 }
 
@@ -81,32 +81,12 @@ const handleSave = async () => {
     const response = await request.patch('/profile', data)
     if (response.user) {
       ElMessage.success('保存成功')
-      // 更新本地存储的用户信息
-      const userInfo = {
-        id: response.user.id,
-        username: response.user.username,
-        nickname: response.user.nickname,
-        email: response.user.email,
-        avatar: response.user.avatar,
-        status: response.user.status,
-        created_at: response.user.created_at,
-        updated_at: response.user.updated_at
-      }
-      localStorage.setItem('user', JSON.stringify(userInfo))
-      // 通知其他组件用户信息已更新
-      emitter.emit('user-updated', userInfo)
+      updateUserInfo(response.user)
     } else {
       throw new Error('更新失败：服务器返回数据格式不正确')
     }
   } catch (error) {
-    console.error('更新个人信息失败:', error)
-    if (error.response?.data?.message) {
-      ElMessage.error(`更新失败：${error.response.data.message}`)
-    } else if (error.message) {
-      ElMessage.error(error.message)
-    } else {
-      ElMessage.error('更新失败：未知错误')
-    }
+    handleRequestError(error)
   } finally {
     loading.value = false
   }
@@ -141,37 +121,18 @@ const handleAvatarSuccess = async (response) => {
     form.value.avatar = response.url
     // 构造更新请求数据，只包含头像字段
     const data = {
-      avatar: response.url  // 只传递头像字段
+      avatar: response.url
     }
-    console.log('更新头像数据:', data)  // 调试日志
     const result = await request.patch('/profile', data)
 
     if (result.user) {
       ElMessage.success('头像更新成功')
-      // 更新本地存储的用户信息
-      const userInfo = {
-        id: result.user.id,
-        username: result.user.username,
-        nickname: result.user.nickname,
-        email: result.user.email,
-        avatar: result.user.avatar,
-        status: result.user.status,
-        created_at: result.user.created_at,
-        updated_at: result.user.updated_at
-      }
-      localStorage.setItem('user', JSON.stringify(userInfo))
-      // 通知其他组件用户信息已更新
-      emitter.emit('user-updated', userInfo)
+      updateUserInfo(result.user)
     } else {
       throw new Error('服务器返回数据格式不正确')
     }
   } catch (error) {
-    console.error('更新头像失败:', error)
-    if (error.response?.data?.message) {
-      ElMessage.error(`头像更新失败: ${error.response.data.message}`)
-    } else {
-      ElMessage.error(error.message || '头像更新失败')
-    }
+    handleRequestError(error)
     // 如果更新失败，恢复原来的头像
     form.value.avatar = form.value.avatar || ''
   }
@@ -179,8 +140,7 @@ const handleAvatarSuccess = async (response) => {
 
 // 头像上传失败的回调
 const handleAvatarError = (error) => {
-  console.error('Upload error:', error)
-  ElMessage.error(error.response?.data?.message || '头像上传失败')
+  handleRequestError(error)
 }
 
 onMounted(() => {

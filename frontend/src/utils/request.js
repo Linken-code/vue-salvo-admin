@@ -2,6 +2,18 @@ import axios from 'axios';
 import { ElMessage } from 'element-plus';
 import router from '../router';
 
+// 统一的错误处理函数
+export const handleRequestError = (error) => {
+  if (error.response?.data?.message) {
+    ElMessage.error(error.response.data.message)
+  } else if (error.message) {
+    ElMessage.error(error.message)
+  } else {
+    ElMessage.error('未知错误')
+  }
+  return Promise.reject(error)
+}
+
 const request = axios.create({
     baseURL: 'http://localhost:3000',
     timeout: 5000,
@@ -18,9 +30,7 @@ request.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    handleRequestError
 );
 
 // 响应拦截器
@@ -35,7 +45,7 @@ request.interceptors.response.use(
     },
     (error) => {
         if (error.response) {
-            const { status, data } = error.response;
+            const { status } = error.response;
             switch (status) {
                 case 401:
                     // 清除 token 并跳转到登录页
@@ -59,14 +69,11 @@ request.interceptors.response.use(
                     ElMessage.error('服务器内部错误');
                     break;
                 default:
-                    ElMessage.error(data.message || '未知错误');
+                    return handleRequestError(error);
             }
-        } else if (error.request) {
-            ElMessage.error('网络错误，请检查您的网络连接');
-        } else {
-            ElMessage.error('请求配置错误');
+            return Promise.reject(error);
         }
-        return Promise.reject(error);
+        return handleRequestError(error);
     }
 );
 

@@ -6,9 +6,11 @@ mod utils;
 
 use crate::config::database;
 use crate::controllers::menu::{create_menu, delete_menu, get_menus, update_menu};
-use crate::controllers::permission::{create_permission, get_permissions, update_permission};
+use crate::controllers::permission::{
+    create_permission, delete_permission, get_permissions, update_permission,
+};
 use crate::controllers::role::{
-    create_role, get_role_permissions, get_roles, update_role, update_role_permissions,
+    create_role, delete_role, get_role_permissions, get_roles, update_role, update_role_permissions,
 };
 use crate::controllers::user::{
     create_user, delete_user, get_current_user, get_user_roles, get_users, login, update_password,
@@ -78,11 +80,14 @@ async fn main() {
                 .get(get_roles)
                 .post(create_role)
                 .push(
-                    Router::with_path("<id>").put(update_role).push(
-                        Router::with_path("permissions")
-                            .get(get_role_permissions)
-                            .put(update_role_permissions),
-                    ),
+                    Router::with_path("<id>")
+                        .put(update_role)
+                        .delete(delete_role)
+                        .push(
+                            Router::with_path("permissions")
+                                .get(get_role_permissions)
+                                .put(update_role_permissions),
+                        ),
                 )
                 .hoop(auth_middleware),
         )
@@ -90,7 +95,11 @@ async fn main() {
             Router::with_path("permissions")
                 .get(get_permissions)
                 .post(create_permission)
-                .push(Router::with_path("<id>").put(update_permission))
+                .push(
+                    Router::with_path("<id>")
+                        .put(update_permission)
+                        .delete(delete_permission),
+                )
                 .hoop(auth_middleware),
         )
         .push(
