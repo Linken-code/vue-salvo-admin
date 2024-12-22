@@ -61,8 +61,8 @@
                 <Moon v-else />
               </el-icon>
             </el-tooltip>
-            <el-dropdown trigger="click" @command="handleCommand" :teleported="false">
-              <div class="avatar-container">
+            <el-dropdown trigger="click" @command="handleCommand" popper-class="user-dropdown">
+              <div class="avatar-container" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">
                 <el-avatar :size="32" :src="getAvatarUrl(userInfo?.avatar)" />
                 <span class="username">{{ userInfo?.nickname || '用户' }}</span>
                 <el-icon class="el-icon--right">
@@ -70,20 +70,20 @@
                 </el-icon>
               </div>
               <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="profile">
+                <el-dropdown-menu role="menu" aria-label="用户菜单">
+                  <el-dropdown-item command="profile" role="menuitem" tabindex="0">
                     <el-icon>
                       <User />
                     </el-icon>
                     个人信息
                   </el-dropdown-item>
-                  <el-dropdown-item command="password">
+                  <el-dropdown-item command="password" role="menuitem" tabindex="0">
                     <el-icon>
                       <Lock />
                     </el-icon>
                     修改密码
                   </el-dropdown-item>
-                  <el-dropdown-item divided command="logout">
+                  <el-dropdown-item divided command="logout" role="menuitem" tabindex="0">
                     <el-icon>
                       <SwitchButton />
                     </el-icon>
@@ -382,5 +382,22 @@ onBeforeUnmount(() => {
 .fade-transform-leave-to {
   opacity: 0;
   transform: translateX(30px);
+}
+
+:deep(.user-dropdown) {
+  &[aria-hidden="true"] {
+    display: none;
+  }
+
+  .el-dropdown-menu__item {
+    &:focus {
+      outline: 2px solid var(--el-color-primary);
+      outline-offset: -2px;
+    }
+
+    &:focus:not(:focus-visible) {
+      outline: none;
+    }
+  }
 }
 </style>
