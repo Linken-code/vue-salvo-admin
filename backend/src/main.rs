@@ -6,6 +6,7 @@ mod utils;
 
 use crate::config::database;
 use crate::controllers::menu::{create_menu, delete_menu, get_menus, update_menu};
+use crate::controllers::operation_log::{delete_operation_logs, get_operation_logs};
 use crate::controllers::permission::{
     create_permission, delete_permission, get_permissions, update_permission,
 };
@@ -17,6 +18,7 @@ use crate::controllers::user::{
     update_profile, update_user, update_user_roles,
 };
 use crate::middleware::auth::auth_middleware;
+use crate::middleware::operation_log::{operation_log_after_middleware, operation_log_middleware};
 
 use salvo::cors::Cors;
 use salvo::http::Method;
@@ -44,78 +46,69 @@ async fn main() {
     let router = Router::new()
         .push(Router::with_path("auth/login").post(login))
         .push(
-            Router::with_path("auth/current-user")
-                .get(get_current_user)
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("menus")
-                .get(get_menus)
-                .post(create_menu)
+            Router::new()
+                .hoop(auth_middleware)
+                .hoop(operation_log_middleware)
+                .hoop(operation_log_after_middleware)
+                .push(Router::with_path("auth/current-user").get(get_current_user))
                 .push(
-                    Router::with_path("<id>")
-                        .put(update_menu)
-                        .delete(delete_menu),
-                )
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("users")
-                .get(get_users)
-                .post(create_user)
-                .push(
-                    Router::with_path("<id>")
-                        .put(update_user)
-                        .delete(delete_user)
+                    Router::with_path("menus")
+                        .get(get_menus)
+                        .post(create_menu)
                         .push(
-                            Router::with_path("roles")
-                                .get(get_user_roles)
-                                .put(update_user_roles),
+                            Router::with_path("<id>")
+                                .put(update_menu)
+                                .delete(delete_menu),
                         ),
                 )
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("roles")
-                .get(get_roles)
-                .post(create_role)
                 .push(
-                    Router::with_path("<id>")
-                        .put(update_role)
-                        .delete(delete_role)
+                    Router::with_path("users")
+                        .get(get_users)
+                        .post(create_user)
                         .push(
-                            Router::with_path("permissions")
-                                .get(get_role_permissions)
-                                .put(update_role_permissions),
+                            Router::with_path("<id>")
+                                .put(update_user)
+                                .delete(delete_user)
+                                .push(
+                                    Router::with_path("roles")
+                                        .get(get_user_roles)
+                                        .put(update_user_roles),
+                                ),
                         ),
                 )
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("permissions")
-                .get(get_permissions)
-                .post(create_permission)
                 .push(
-                    Router::with_path("<id>")
-                        .put(update_permission)
-                        .delete(delete_permission),
+                    Router::with_path("roles")
+                        .get(get_roles)
+                        .post(create_role)
+                        .push(
+                            Router::with_path("<id>")
+                                .put(update_role)
+                                .delete(delete_role)
+                                .push(
+                                    Router::with_path("permissions")
+                                        .get(get_role_permissions)
+                                        .put(update_role_permissions),
+                                ),
+                        ),
                 )
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("profile")
-                .patch(update_profile)
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("profile/password")
-                .patch(update_password)
-                .hoop(auth_middleware),
-        )
-        .push(
-            Router::with_path("upload")
-                .post(controllers::upload::upload_file)
-                .hoop(auth_middleware),
+                .push(
+                    Router::with_path("permissions")
+                        .get(get_permissions)
+                        .post(create_permission)
+                        .push(
+                            Router::with_path("<id>")
+                                .put(update_permission)
+                                .delete(delete_permission),
+                        ),
+                )
+                .push(Router::with_path("profile").patch(update_profile))
+                .push(Router::with_path("profile/password").patch(update_password))
+                .push(Router::with_path("upload").post(controllers::upload::upload_file))
+                .push(
+                    Router::with_path("operation-logs")
+                        .get(get_operation_logs)
+                        .delete(delete_operation_logs),
+                ),
         )
         .push(Router::with_path("uploads/<**path>").get(StaticDir::new(["uploads"])));
 

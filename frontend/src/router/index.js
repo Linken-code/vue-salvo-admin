@@ -6,6 +6,7 @@ import MenuList from '../views/system/MenuList.vue'
 import UserList from '../views/system/UserList.vue'
 import RoleList from '../views/system/RoleList.vue'
 import PermissionList from '../views/system/PermissionList.vue'
+import OperationLogList from '../views/system/OperationLogList.vue'
 import Profile from '../views/user/Profile.vue'
 import Password from '../views/user/Password.vue'
 
@@ -50,6 +51,12 @@ const routes = [
         name: 'MenuList',
         component: MenuList,
         meta: { title: '菜单管理', requiresAuth: true }
+      },
+      {
+        path: 'operation-logs',
+        name: 'OperationLogList',
+        component: OperationLogList,
+        meta: { title: '操作日志', requiresAuth: true }
       },
       {
         path: 'profile',

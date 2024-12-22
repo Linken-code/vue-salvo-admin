@@ -1,6 +1,7 @@
 use crate::utils::jwt::verify_token;
 use salvo::prelude::*;
 use serde_json::json;
+use sqlx::SqlitePool;
 
 #[handler]
 pub async fn auth_middleware(
@@ -41,7 +42,28 @@ pub async fn auth_middleware(
     // 验证 token
     match verify_token(&token) {
         Some(user_id) => {
-            depot.insert("user_id", user_id);
+            // 获取数据库连接
+            let pool = req.extensions().get::<SqlitePool>().unwrap();
+
+            // 查询用户信息
+            match sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = ?")
+                .bind(user_id)
+                .fetch_one(pool)
+                .await
+            {
+                Ok(username) => {
+                    // 存储用户ID和用户名到depot
+                    depot.insert("user_id", user_id);
+                    depot.insert("username", username);
+                }
+                Err(_) => {
+                    res.status_code(StatusCode::UNAUTHORIZED);
+                    res.render(Json(json!({
+                        "message": "用户不存在"
+                    })));
+                    ctrl.skip_rest();
+                }
+            }
         }
         None => {
             res.status_code(StatusCode::UNAUTHORIZED);

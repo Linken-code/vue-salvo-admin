@@ -1,8 +1,10 @@
 pub mod menu;
+pub mod operation_log;
 pub mod permission;
 pub mod role;
 pub mod user;
 pub use menu::*;
+pub use operation_log::*;
 pub use permission::*;
 pub use role::*;
 pub use user::*;

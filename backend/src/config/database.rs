@@ -136,6 +136,28 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
     .await?;
     println!("Created user_roles table");
 
+    // 创建操作日志表
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS operation_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            module TEXT,
+            operation TEXT,
+            method TEXT,
+            params TEXT,
+            ip TEXT,
+            status INTEGER,
+            error TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+    println!("Created operation_logs table");
+
     // 检查是否已有菜单数据
     let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM menus")
         .fetch_one(&pool)
@@ -210,6 +232,17 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .execute(&pool)
         .await?;
 
+        // 添加操作日志子菜单
+        sqlx::query(
+            r#"
+            INSERT INTO menus (parent_id, name, path, component, title, icon, sort, is_hidden)
+            VALUES (?, 'OperationLogList', '/operation-logs', '../views/system/OperationLogList.vue', '操作日志', 'Document', 4, false)
+            "#,
+        )
+        .bind(system_id)
+        .execute(&pool)
+        .await?;
+
         // 添加个人信息设置菜单
         sqlx::query(
             r#"
@@ -260,7 +293,8 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
                 ('用户管理', 'user:manage', '用户的增删改查权限'),
                 ('角色管理', 'role:manage', '角色的增删改查权限'),
                 ('菜单管理', 'menu:manage', '菜单的增删改查权限'),
-                ('权限管理', 'permission:manage', '权限的增删改查权限')
+                ('权限管理', 'permission:manage', '权限的增删改查权限'),
+                ('操作日志', 'operation-log:manage', '操作日志的查看和清空权限')
             "#,
         )
         .execute(&pool)
@@ -287,7 +321,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .fetch_one(&pool)
         .await?;
 
-        // 获取所有权限ID
+        // 获取所有权��ID
         let permission_ids = sqlx::query_scalar::<_, i64>("SELECT id FROM permissions")
             .fetch_all(&pool)
             .await?;
