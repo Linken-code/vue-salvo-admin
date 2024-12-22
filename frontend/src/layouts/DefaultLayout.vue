@@ -3,7 +3,7 @@
     <el-aside :width="isCollapse ? '64px' : '240px'" class="aside">
       <div class="logo" @click="router.push('/')">
         <img src="../assets/logo.svg" alt="Logo" />
-        <span v-show="!isCollapse">Vue Salvo Admin</span>
+        <span v-show="!isCollapse">Jing Salvo Admin</span>
       </div>
       <el-scrollbar>
         <el-menu :default-active="route.path" :collapse="isCollapse" :unique-opened="false" router class="menu">
@@ -106,7 +106,7 @@
 
       <el-footer class="footer" height="40px">
         <div class="copyright">
-          Copyright © {{ new Date().getFullYear() }} Vue Salvo Admin. All rights reserved.
+          Copyright © {{ new Date().getFullYear() }} Jing Salvo Admin. All rights reserved.
         </div>
       </el-footer>
     </el-container>

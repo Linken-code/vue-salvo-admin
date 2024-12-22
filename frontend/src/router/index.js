@@ -80,7 +80,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - Vue Salvo Admin` : 'Vue Salvo Admin'
+  document.title = to.meta.title ? `${to.meta.title} - Jing Salvo Admin` : 'Jing Salvo Admin'
 
   if (to.matched.some(record => record.meta.requiresAuth)) {
     const token = localStorage.getItem('token')

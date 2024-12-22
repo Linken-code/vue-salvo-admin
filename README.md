@@ -1,6 +1,6 @@
-# Vue Salvo Admin
+# Jing Salvo Admin
 
-一个现代化的后台管理系统，基于 Vue 3 + Salvo (Rust) 开发。采用前后端分离架构，实现了基础的 RBAC 权限管理功能。
+一个基于 Vue 3 和 Rust Salvo 的后台管理系统。
 
 ## 功能特性
 
@@ -73,7 +73,7 @@ cargo run
 - 前端开发服务器: http://localhost:5173
 - 后端API服务器: http://localhost:3000
 
-## 项目��构
+## 项目结构
 ```
 frontend/          # 前端项目
 ├── src/          # 源码目录

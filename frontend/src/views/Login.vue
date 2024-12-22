@@ -3,7 +3,7 @@
     <div class="login-box">
       <div class="login-left">
         <img src="../assets/logo.svg" alt="Logo" class="logo" />
-        <h1>Vue Salvo Admin</h1>
+        <h1>Jing Salvo Admin</h1>
         <p>一个现代化的后台管理系统</p>
       </div>
       <div class="login-right">
@@ -91,7 +91,7 @@ const handleLogin = async () => {
       const redirect = route.query.redirect || '/';
       router.push(redirect);
 
-      ElMessage.success('登录成功');
+      ElMessage.success('登录成��');
     } else {
       ElMessage.error('登录失败：无效的响应数据');
     }
