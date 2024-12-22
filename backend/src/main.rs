@@ -14,8 +14,8 @@ use crate::controllers::role::{
     create_role, delete_role, get_role_permissions, get_roles, update_role, update_role_permissions,
 };
 use crate::controllers::user::{
-    create_user, delete_user, get_current_user, get_user_roles, get_users, login, update_password,
-    update_profile, update_user, update_user_roles,
+    create_user, delete_user, get_current_user, get_user_permissions, get_user_roles, get_users,
+    login, update_password, update_profile, update_user, update_user_roles,
 };
 use crate::middleware::auth::auth_middleware;
 use crate::middleware::operation_log::{operation_log_after_middleware, operation_log_middleware};
@@ -28,10 +28,10 @@ use std::path::Path;
 
 #[tokio::main]
 async fn main() {
-    let pool = match database::init_db().await {
+    let pool = match database::create_pool().await {
         Ok(pool) => pool,
-        Err(err) => {
-            eprintln!("Failed to initialize database: {}", err);
+        Err(e) => {
+            eprintln!("Failed to create database pool: {}", e);
             return;
         }
     };
@@ -51,6 +51,7 @@ async fn main() {
                 .hoop(operation_log_middleware)
                 .hoop(operation_log_after_middleware)
                 .push(Router::with_path("auth/current-user").get(get_current_user))
+                .push(Router::with_path("user/permissions").get(get_user_permissions))
                 .push(
                     Router::with_path("menus")
                         .get(get_menus)

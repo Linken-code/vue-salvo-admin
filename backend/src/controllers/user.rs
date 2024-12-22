@@ -1,4 +1,4 @@
-use crate::models::{CreateUser, Role, UpdateUser, User};
+use crate::models::{CreateUser, Permission, Role, UpdateUser, User};
 use crate::utils::jwt::generate_token;
 use crate::utils::password::{hash_password, verify_password};
 use salvo::prelude::*;
@@ -419,49 +419,71 @@ pub async fn get_user(req: &mut Request, res: &mut Response) {
 
 #[handler]
 pub async fn get_current_user(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let user_id = depot.get::<i64>("user_id").unwrap();
     let pool = req.extensions().get::<SqlitePool>().unwrap();
 
-    if let Ok(user_id) = depot.get::<i64>("user_id") {
-        match sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
-            .bind(user_id)
-            .fetch_optional(pool)
-            .await
-        {
-            Ok(Some(user)) => {
-                // 不返回密码字段
-                res.render(Json(json!({
-                    "user": {
-                        "id": user.id,
-                        "username": user.username,
-                        "nickname": user.nickname,
-                        "email": user.email,
-                        "avatar": user.avatar,
-                        "status": user.status,
-                        "created_at": user.created_at,
-                        "updated_at": user.updated_at
-                    }
-                })));
-            }
-            Ok(None) => {
-                res.status_code(StatusCode::NOT_FOUND);
-                res.render(Json(json!({
-                    "message": "用户不存在"
-                })));
-            }
-            Err(e) => {
-                eprintln!("Database error: {}", e);
-                res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-                res.render(Json(json!({
-                    "message": "服务器内部错误"
-                })));
-            }
+    // 查询用户基本信息
+    let user = match sqlx::query_as::<_, User>(
+        r#"
+        SELECT * FROM users WHERE id = ?
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(user) => user,
+        Err(e) => {
+            eprintln!("获取用户信息失败: {:?}", e);
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(json!({
+                "code": 500,
+                "message": format!("获取用户信息失败: {}", e)
+            })));
+            return;
         }
-    } else {
-        res.status_code(StatusCode::UNAUTHORIZED);
-        res.render(Json(json!({
-            "message": "未授权"
-        })));
-    }
+    };
+
+    // 查询用户的角色
+    let roles = match sqlx::query_as::<_, Role>(
+        r#"
+        SELECT r.* FROM roles r
+        INNER JOIN user_roles ur ON ur.role_id = r.id
+        WHERE ur.user_id = ?
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(roles) => roles,
+        Err(e) => {
+            eprintln!("获取用户角色失败: {:?}", e);
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(json!({
+                "code": 500,
+                "message": format!("获取用户角色失败: {}", e)
+            })));
+            return;
+        }
+    };
+
+    // 返回用户信息和角色
+    res.render(Json(json!({
+        "code": 0,
+        "message": "success",
+        "data": {
+            "id": user.id,
+            "username": user.username,
+            "nickname": user.nickname,
+            "email": user.email,
+            "avatar": user.avatar,
+            "status": user.status,
+            "roles": roles,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }
+    })));
 }
 
 #[handler]
@@ -520,7 +542,7 @@ pub async fn update_user_roles(req: &mut Request, res: &mut Response) {
         }
     };
 
-    // 删除现有��色
+    // 删除现有角色
     if let Err(e) = sqlx::query("DELETE FROM user_roles WHERE user_id = ?")
         .bind(user_id)
         .execute(&mut *tx)
@@ -677,4 +699,84 @@ pub async fn update_profile(req: &mut Request, depot: &mut Depot, res: &mut Resp
             })));
         }
     }
+}
+
+#[handler]
+pub async fn get_user_permissions(req: &mut Request, depot: &mut Depot, res: &mut Response) {
+    let user_id = depot.get::<i64>("user_id").unwrap();
+    let pool = req.extensions().get::<SqlitePool>().unwrap();
+
+    // 查询用户的角色
+    let roles = match sqlx::query_as::<_, Role>(
+        r#"
+        SELECT r.* FROM roles r
+        INNER JOIN user_roles ur ON ur.role_id = r.id
+        WHERE ur.user_id = ?
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(roles) => roles,
+        Err(e) => {
+            eprintln!("获取用户角色失败: {:?}", e);
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(json!({
+                "code": 500,
+                "message": format!("获取用户角色失败: {}", e)
+            })));
+            return;
+        }
+    };
+
+    // 获取角色的所有权限
+    let mut permissions = Vec::new();
+    for role in roles {
+        match sqlx::query_as::<_, Permission>(
+            r#"
+            SELECT p.* FROM permissions p
+            INNER JOIN role_permissions rp ON rp.permission_id = p.id
+            WHERE rp.role_id = ?
+            "#,
+        )
+        .bind(role.id)
+        .fetch_all(pool)
+        .await
+        {
+            Ok(role_permissions) => {
+                permissions.extend(role_permissions);
+            }
+            Err(e) => {
+                eprintln!("获取角色权限失败: {:?}", e);
+                res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+                res.render(Json(json!({
+                    "code": 500,
+                    "message": format!("获取角色权限失败: {}", e)
+                })));
+                return;
+            }
+        }
+    }
+
+    // 去重
+    permissions.sort_by(|a, b| a.id.cmp(&b.id));
+    permissions.dedup_by(|a, b| a.id == b.id);
+
+    // 获取菜单权限
+    let menus = permissions
+        .iter()
+        .filter(|p| p.type_name == "PAGE")
+        .cloned()
+        .collect::<Vec<_>>();
+
+    // 返回权限和菜单
+    res.render(Json(json!({
+        "code": 0,
+        "message": "success",
+        "data": {
+            "permissions": permissions,
+            "menus": menus
+        }
+    })));
 }

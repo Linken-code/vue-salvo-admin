@@ -1,21 +1,22 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
-import Dashboard from '../views/Dashboard.vue'
-import Login from '../views/Login.vue'
-import MenuList from '../views/system/MenuList.vue'
-import UserList from '../views/system/UserList.vue'
-import RoleList from '../views/system/RoleList.vue'
-import PermissionList from '../views/system/PermissionList.vue'
-import OperationLogList from '../views/system/OperationLogList.vue'
-import Profile from '../views/user/Profile.vue'
-import Password from '../views/user/Password.vue'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login,
-    meta: { title: '登录' }
+    component: () => import('../views/Login.vue'),
+    meta: {
+      title: '登录'
+    }
+  },
+  {
+    path: '/403',
+    name: '403',
+    component: () => import('../views/403.vue'),
+    meta: {
+      title: '403'
+    }
   },
   {
     path: '/',
@@ -25,50 +26,71 @@ const routes = [
       {
         path: 'dashboard',
         name: 'Dashboard',
-        component: Dashboard,
-        meta: { title: '仪表盘', requiresAuth: true }
+        component: () => import('../views/Dashboard.vue'),
+        meta: {
+          title: '仪表盘',
+          icon: 'Odometer'
+        }
       },
       {
-        path: 'users',
-        name: 'UserList',
-        component: UserList,
-        meta: { title: '用户管理', requiresAuth: true }
-      },
-      {
-        path: 'roles',
-        name: 'RoleList',
-        component: RoleList,
-        meta: { title: '角色管理', requiresAuth: true }
-      },
-      {
-        path: 'permissions',
-        name: 'PermissionList',
-        component: PermissionList,
-        meta: { title: '权限管理', requiresAuth: true }
-      },
-      {
-        path: 'menus',
+        path: '/menus',
         name: 'MenuList',
-        component: MenuList,
-        meta: { title: '菜单管理', requiresAuth: true }
+        component: () => import('../views/system/MenuList.vue'),
+        meta: {
+          title: '菜单管理',
+          icon: 'Menu',
+          permission: 'system:menu'
+        }
       },
       {
-        path: 'operation-logs',
+        path: '/users',
+        name: 'UserList',
+        component: () => import('../views/system/UserList.vue'),
+        meta: {
+          title: '用户管理',
+          icon: 'User',
+          permission: 'system:user'
+        }
+      },
+      {
+        path: '/roles',
+        name: 'RoleList',
+        component: () => import('../views/system/RoleList.vue'),
+        meta: {
+          title: '角色管理',
+          icon: 'UserFilled',
+          permission: 'system:role'
+        }
+      },
+      {
+        path: '/permissions',
+        name: 'PermissionList',
+        component: () => import('../views/system/PermissionList.vue'),
+        meta: {
+          title: '权限管理',
+          icon: 'Lock',
+          permission: 'system:permission'
+        }
+      },
+      {
+        path: '/operation-logs',
         name: 'OperationLogList',
-        component: OperationLogList,
-        meta: { title: '操作日志', requiresAuth: true }
+        component: () => import('../views/system/OperationLogList.vue'),
+        meta: {
+          title: '操作日志',
+          icon: 'Document',
+          permission: 'system:log'
+        }
       },
       {
-        path: 'profile',
+        path: '/profile',
         name: 'Profile',
-        component: Profile,
-        meta: { title: '个人信息', requiresAuth: true, hidden: true }
-      },
-      {
-        path: 'profile/password',
-        name: 'Password',
-        component: Password,
-        meta: { title: '修改密码', requiresAuth: true, hidden: true }
+        component: () => import('../views/user/Profile.vue'),
+        meta: {
+          title: '个人信息',
+          icon: 'User',
+          permission: 'system:profile'
+        }
       }
     ]
   }
@@ -77,28 +99,6 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
-
-router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - Jing Salvo Admin` : 'Jing Salvo Admin'
-
-  if (to.matched.some(record => record.meta.requiresAuth)) {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      next({
-        path: '/login',
-        query: { redirect: to.fullPath }
-      })
-    } else {
-      next()
-    }
-  } else {
-    if (to.path === '/login' && localStorage.getItem('token')) {
-      next('/')
-    } else {
-      next()
-    }
-  }
 })
 
 export default router 

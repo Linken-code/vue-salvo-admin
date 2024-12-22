@@ -169,15 +169,15 @@
     </el-dialog>
 
     <!-- 权限分配对话框 -->
-    <el-dialog title="分配权限" v-model="permissionDialogVisible" width="800px">
-      <div class="transfer-container">
-        <el-transfer v-model="selectedPermissions" :data="allPermissions" :titles="['可选权限', '已选权限']" filterable
-          :filter-method="filterMethod" filter-placeholder="请输入权限名称" />
-      </div>
+    <el-dialog v-model="permissionDialogVisible" title="分配权限" width="50%" destroy-on-close>
+      <permission-tree v-if="currentRole" ref="permissionTreeRef" :role-id="currentRole.id"
+        @change="handlePermissionChange" />
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="permissionDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handlePermissionSubmit">确定</el-button>
+          <el-button type="primary" @click="handleSavePermissions">
+            确定
+          </el-button>
         </span>
       </template>
     </el-dialog>
@@ -190,12 +190,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '../../utils/request'
 import { formatDateTime } from '../../utils/format'
 import { UserFilled, Plus, Edit, Delete, Key, ArrowRight } from '@element-plus/icons-vue'
+import PermissionTree from '@/components/PermissionTree.vue'
 
 const roles = ref([])
 const dialogVisible = ref(false)
 const permissionDialogVisible = ref(false)
 const dialogTitle = ref('')
 const formRef = ref()
+const currentRole = ref(null)
 const currentRoleId = ref(null)
 
 // 分页相关
@@ -222,7 +224,7 @@ const rules = {
 }
 
 // 权限相关
-const allPermissions = ref([])
+const permissionTreeRef = ref()
 const selectedPermissions = ref([])
 
 // 搜索表单
@@ -232,7 +234,7 @@ const searchForm = ref({
   status: ''
 })
 
-// 角色颜色映射
+// 角色色映射
 const roleColorMap = {
   'super_admin': ['#9C27B0', '#BA68C8'], // 超级管理员：紫色
   'admin': ['#1976D2', '#42A5F5'], // 管理员：蓝色
@@ -291,40 +293,7 @@ const fetchRoles = async () => {
       }
     });
 
-    // 获取所有权限
-    const permissionsResponse = await request.get('/permissions', {
-      params: {
-        page: 1,
-        page_size: 1000 // 获取所有权限
-      }
-    });
-    const allPermissionsMap = new Map(
-      permissionsResponse.items.map(permission => [permission.id, permission])
-    );
-
-    // 获取每个角色的权限信息
-    const rolesWithPermissions = await Promise.all(
-      response.items.map(async (role) => {
-        try {
-          const permissionResponse = await request.get(`/roles/${role.id}/permissions`);
-          const permissions = permissionResponse.permissions
-            .map(permissionId => allPermissionsMap.get(permissionId))
-            .filter(Boolean); // 过滤掉不存在的权限
-          return {
-            ...role,
-            permissions
-          };
-        } catch (error) {
-          console.error(`获取角色 ${role.id} 的权限失败:`, error);
-          return {
-            ...role,
-            permissions: []
-          };
-        }
-      })
-    );
-
-    roles.value = rolesWithPermissions;
+    roles.value = response.items;
     total.value = response.total;
   } catch (error) {
     ElMessage.error('获取角色列表失败');
@@ -379,11 +348,9 @@ const handleEdit = (row) => {
   form.value = { ...row }
 }
 
-const handlePermissions = async (row) => {
-  currentRoleId.value = row.id
+const handlePermissions = (row) => {
+  currentRole.value = row
   permissionDialogVisible.value = true
-  await fetchPermissions()
-  await fetchRolePermissions(row.id)
 }
 
 const handleDelete = (row) => {
@@ -444,15 +411,26 @@ const handleSubmit = async () => {
   })
 }
 
-const handlePermissionSubmit = async () => {
+const handlePermissionChange = (checkedKeys) => {
+  console.log('Permission change:', checkedKeys)
+  selectedPermissions.value = checkedKeys
+}
+
+const handleSavePermissions = async () => {
+  if (!currentRole.value) return
+
   try {
-    await request.put(`/roles/${currentRoleId.value}/permissions`, selectedPermissions.value)
+    const checkedKeys = permissionTreeRef.value.getCheckedPermissions()
+    console.log('Saving permissions:', checkedKeys)
+    await request.put(`/roles/${currentRole.value.id}/permissions`, {
+      permission_ids: checkedKeys
+    })
     ElMessage.success('权限设置成功')
     permissionDialogVisible.value = false
-    fetchRoles()
+    fetchRoles() // 刷新角色列表
   } catch (error) {
-    console.error('设置权限失败:', error)
-    ElMessage.error('设置权限失败')
+    console.error('Failed to save permissions:', error)
+    ElMessage.error('权限设置失败')
   }
 }
 

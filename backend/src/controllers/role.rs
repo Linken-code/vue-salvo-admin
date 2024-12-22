@@ -1,9 +1,20 @@
+use crate::controllers::user::PageResponse;
+use crate::models::{CreateRole, Permission, PermissionTree, Role};
 use salvo::prelude::*;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 
-use crate::controllers::user::PageResponse;
-use crate::models::{CreateRole, Permission, Role};
+#[derive(Debug, serde::Deserialize)]
+pub struct RolePermissions {
+    pub permission_ids: Vec<i64>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RoleQuery {
+    pub name: Option<String>,
+    pub code: Option<String>,
+}
 
 #[handler]
 pub async fn get_roles(req: &mut Request, res: &mut Response) {
@@ -14,7 +25,6 @@ pub async fn get_roles(req: &mut Request, res: &mut Response) {
     // 获取查询参数
     let name = req.query::<String>("name").unwrap_or_default();
     let code = req.query::<String>("code").unwrap_or_default();
-    let status = req.query::<i32>("status");
 
     let pool = req.extensions().get::<SqlitePool>().unwrap();
 
@@ -29,10 +39,6 @@ pub async fn get_roles(req: &mut Request, res: &mut Response) {
     if !code.is_empty() {
         conditions.push("code LIKE ?");
         params.push(format!("%{}%", code));
-    }
-    if let Some(status) = status {
-        conditions.push("status = ?");
-        params.push(status.to_string());
     }
 
     // 构建查询语句
@@ -107,20 +113,16 @@ pub async fn create_role(req: &mut Request, res: &mut Response) {
     };
 
     let pool = req.extensions().get::<SqlitePool>().unwrap();
-    let status = role.status.unwrap_or(1);
     match sqlx::query_as::<_, Role>(
         r#"
-        INSERT INTO roles (name, code, description, status, color_start, color_end)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO roles (name, code, description)
+        VALUES (?, ?, ?)
         RETURNING *
         "#,
     )
     .bind(&role.name)
     .bind(&role.code)
     .bind(&role.description)
-    .bind(status)
-    .bind(&role.color_start)
-    .bind(&role.color_end)
     .fetch_one(pool)
     .await
     {
@@ -139,64 +141,42 @@ pub async fn create_role(req: &mut Request, res: &mut Response) {
 
 #[handler]
 pub async fn update_role(req: &mut Request, res: &mut Response) {
-    let id = req.param::<i64>("id").unwrap();
-    let role = match req.parse_json::<Role>().await {
+    let id: i64 = req.param::<String>("id").unwrap().parse().unwrap();
+    let role: CreateRole = match req.parse_json().await {
         Ok(role) => role,
         Err(e) => {
-            eprintln!("解析角色数据失败: {:?}", e);
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(Json(json!({
-                "message": format!("无效的角色数据: {}", e)
+            res.render(Json(serde_json::json!({
+                "error": format!("Invalid role data: {}", e)
             })));
             return;
         }
     };
 
     let pool = req.extensions().get::<SqlitePool>().unwrap();
-
-    // 更新角色
-    let result = sqlx::query(
-        "UPDATE roles SET name = ?, code = ?, description = ?, status = ?, color_start = ?, color_end = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+    match sqlx::query_as::<_, Role>(
+        r#"
+        UPDATE roles 
+        SET name = ?, code = ?, description = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        RETURNING *
+        "#,
     )
     .bind(&role.name)
     .bind(&role.code)
     .bind(&role.description)
-    .bind(&role.status)
-    .bind(&role.color_start)
-    .bind(&role.color_end)
     .bind(id)
-    .execute(pool)
-    .await;
-
-    match result {
-        Ok(_) => {
-            // 查询更新后的角色
-            let updated_role = sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = ?")
-                .bind(id)
-                .fetch_one(pool)
-                .await;
-
-            match updated_role {
-                Ok(role) => {
-                    res.render(Json(json!({
-                        "message": "更新成功",
-                        "role": role
-                    })));
-                }
-                Err(e) => {
-                    eprintln!("获取更新后的角色失败: {:?}", e);
-                    res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-                    res.render(Json(json!({
-                        "message": format!("获取更新后的角色失败: {}", e)
-                    })));
-                }
-            }
+    .fetch_one(pool)
+    .await
+    {
+        Ok(role) => {
+            res.render(Json(role));
         }
         Err(e) => {
-            eprintln!("更新角色失败: {:?}", e);
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Json(json!({
-                "message": format!("更新失败: {}", e)
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to update role: {}", e)
             })));
         }
     }
@@ -229,8 +209,30 @@ pub async fn get_role_permissions(req: &mut Request, res: &mut Response) {
     let role_id = req.param::<i64>("id").unwrap();
     let pool = req.extensions().get::<SqlitePool>().unwrap();
 
+    // 查询所有权限
+    let permissions = match sqlx::query_as::<_, Permission>(
+        r#"
+        SELECT * FROM permissions 
+        ORDER BY sort, id
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(permissions) => permissions,
+        Err(e) => {
+            eprintln!("获取权限列表失败: {:?}", e);
+            res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
+            res.render(Json(json!({
+                "code": 500,
+                "message": format!("获取权限列表失败: {}", e)
+            })));
+            return;
+        }
+    };
+
     // 查询角色的权限ID列表
-    match sqlx::query_scalar::<_, i64>(
+    let role_permission_ids = match sqlx::query_scalar::<_, i64>(
         r#"
         SELECT permission_id FROM role_permissions 
         WHERE role_id = ?
@@ -240,31 +242,91 @@ pub async fn get_role_permissions(req: &mut Request, res: &mut Response) {
     .fetch_all(pool)
     .await
     {
-        Ok(permission_ids) => {
-            res.render(Json(json!({
-                "permissions": permission_ids
-            })));
-        }
+        Ok(ids) => ids,
         Err(e) => {
             eprintln!("获取角色权限失败: {:?}", e);
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
             res.render(Json(json!({
+                "code": 500,
                 "message": format!("获取角色权限失败: {}", e)
             })));
+            return;
+        }
+    };
+
+    // 构建权限树
+    let mut permission_map: std::collections::HashMap<i32, PermissionTree> =
+        std::collections::HashMap::new();
+    let mut root_permissions = Vec::new();
+
+    // 首先，将所有权限转换为树节点
+    for permission in &permissions {
+        let tree_node = PermissionTree {
+            id: permission.id,
+            name: permission.name.clone(),
+            code: permission.code.clone(),
+            type_name: permission.type_name.clone(),
+            resource: permission.resource.clone(),
+            action: permission.action.clone(),
+            description: permission.description.clone(),
+            children: Vec::new(),
+        };
+
+        permission_map.insert(permission.id, tree_node);
+    }
+
+    // 然后，构建树结构
+    let mut nodes_to_move = Vec::new();
+    for permission in &permissions {
+        if let Some(parent_id) = permission.parent_id {
+            if let Some(node) = permission_map.remove(&permission.id) {
+                nodes_to_move.push((parent_id as i32, node));
+            }
         }
     }
+
+    // 将节点移动到它们的父节点
+    for (parent_id, node) in nodes_to_move {
+        if let Some(parent) = permission_map.get_mut(&parent_id) {
+            parent.children.push(node);
+        }
+    }
+
+    // 收集根节点
+    for (_, node) in permission_map {
+        root_permissions.push(node);
+    }
+
+    // 按照 sort 字段排序
+    root_permissions.sort_by(|a, b| {
+        let a_code_parts: Vec<&str> = a.code.split(':').collect();
+        let b_code_parts: Vec<&str> = b.code.split(':').collect();
+        a_code_parts
+            .len()
+            .cmp(&b_code_parts.len())
+            .then(a.code.cmp(&b.code))
+    });
+
+    // 返回权限树和已选中的权限ID
+    res.render(Json(json!({
+        "code": 0,
+        "message": "success",
+        "data": {
+            "data": root_permissions,
+            "checkedKeys": role_permission_ids
+        }
+    })));
 }
 
 #[handler]
 pub async fn update_role_permissions(req: &mut Request, res: &mut Response) {
     let role_id = req.param::<i64>("id").unwrap();
-    let permissions: Vec<i64> = match req.parse_json().await {
+    let role_permissions: RolePermissions = match req.parse_json().await {
         Ok(data) => data,
         Err(e) => {
-            eprintln!("解析权限数据失败: {:?}", e);
             res.status_code(StatusCode::BAD_REQUEST);
-            res.render(Json(json!({
-                "message": format!("无效的权限数据: {}", e)
+            res.render(Json(serde_json::json!({
+                "error": format!("Invalid permission data: {}", e)
             })));
             return;
         }
@@ -274,10 +336,9 @@ pub async fn update_role_permissions(req: &mut Request, res: &mut Response) {
     let mut tx = match pool.begin().await {
         Ok(tx) => tx,
         Err(e) => {
-            eprintln!("开始事务失败: {:?}", e);
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Json(json!({
-                "message": format!("开始事务失败: {}", e)
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to start transaction: {}", e)
             })));
             return;
         }
@@ -289,16 +350,15 @@ pub async fn update_role_permissions(req: &mut Request, res: &mut Response) {
         .execute(&mut *tx)
         .await
     {
-        eprintln!("删除现有权限失败: {:?}", e);
         res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-        res.render(Json(json!({
-            "message": format!("删除现有权限失败: {}", e)
+        res.render(Json(serde_json::json!({
+            "error": format!("Failed to delete existing permissions: {}", e)
         })));
         return;
     }
 
     // 添加新权限
-    for permission_id in permissions {
+    for permission_id in role_permissions.permission_ids {
         if let Err(e) =
             sqlx::query("INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)")
                 .bind(role_id)
@@ -306,26 +366,21 @@ pub async fn update_role_permissions(req: &mut Request, res: &mut Response) {
                 .execute(&mut *tx)
                 .await
         {
-            eprintln!("添加新权限失败: {:?}", e);
             res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.render(Json(json!({
-                "message": format!("添加新权限失败: {}", e)
+            res.render(Json(serde_json::json!({
+                "error": format!("Failed to add new permissions: {}", e)
             })));
             return;
         }
     }
 
-    // 提交事务
     if let Err(e) = tx.commit().await {
-        eprintln!("提交事务失败: {:?}", e);
         res.status_code(StatusCode::INTERNAL_SERVER_ERROR);
-        res.render(Json(json!({
-            "message": format!("提交事务失败: {}", e)
+        res.render(Json(serde_json::json!({
+            "error": format!("Failed to commit transaction: {}", e)
         })));
         return;
     }
 
-    res.render(Json(json!({
-        "message": "更新角色权限成功"
-    })));
+    res.status_code(StatusCode::NO_CONTENT);
 }

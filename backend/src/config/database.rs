@@ -1,28 +1,33 @@
 use crate::utils::password::hash_password;
 use sqlx::sqlite::SqlitePool;
 use sqlx::Row;
+use std::env;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 
-pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
-    // 确保数据目录存在
-    let db_path = Path::new("data");
+pub async fn create_pool() -> Result<SqlitePool, sqlx::Error> {
+    // 创建 data 目录
+    let data_dir = Path::new("data");
+    if !data_dir.exists() {
+        fs::create_dir_all(data_dir).expect("Failed to create data directory");
+    }
+
+    // 创建数据库文件
+    let db_path = data_dir.join("data.db");
     if !db_path.exists() {
-        fs::create_dir_all(db_path).expect("Failed to create database directory");
+        fs::File::create(&db_path).expect("Failed to create database file");
     }
 
-    let db_file = db_path.join("data.db");
-    let db_url = format!("sqlite:{}", db_file.display());
+    let database_url = format!("sqlite:{}", db_path.display());
+    println!("Connected to database at: {}", database_url);
 
-    // 如果数据库文件不存在，创建一个空文件
-    if !db_file.exists() {
-        fs::File::create(&db_file).expect("Failed to create database file");
-        println!("Created new database file at: {}", db_file.display());
-    }
+    let pool = SqlitePool::connect(&database_url).await?;
+    init_database(&pool).await?;
+    Ok(pool)
+}
 
-    let pool = SqlitePool::connect(&db_url).await?;
-    println!("Connected to database at: {}", db_file.display());
-
+pub async fn init_database(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     // 创建菜单表
     sqlx::query(
         r#"
@@ -41,7 +46,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created menus table");
 
@@ -61,7 +66,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created users table");
 
@@ -81,7 +86,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created roles table");
 
@@ -92,15 +97,21 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             code TEXT NOT NULL UNIQUE,
+            type_name TEXT NOT NULL DEFAULT 'PAGE',
+            resource TEXT,
+            action TEXT,
+            parent_id INTEGER,
+            sort INTEGER DEFAULT 0,
             description TEXT,
             color_start TEXT,
             color_end TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (parent_id) REFERENCES permissions(id)
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created permissions table");
 
@@ -118,7 +129,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created role_permissions table");
 
@@ -136,7 +147,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created user_roles table");
 
@@ -158,13 +169,13 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
     println!("Created operation_logs table");
 
     // 检查是否已有菜单数据
     let count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM menus")
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?;
 
     // 如果没有数据，添加初始菜单
@@ -177,7 +188,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             VALUES ('Dashboard', '/', '../views/Dashboard.vue', '仪表盘', 'Histogram', 0, false)
             "#,
         )
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加系统管理菜单
@@ -188,7 +199,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             RETURNING id
             "#,
         )
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?
         .get::<i64, _>("id");
 
@@ -200,7 +211,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(system_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加用户管理子菜单
@@ -211,7 +222,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(system_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加角色管理子菜单
@@ -222,7 +233,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(system_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加权限管理子菜单
@@ -233,7 +244,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(system_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加操作日志子菜单
@@ -244,7 +255,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(system_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
 
         // 添加个人信息设置菜单
@@ -254,14 +265,14 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             VALUES ('Profile', '/profile', '../views/user/Profile.vue', '个人信息', 'User', 99, true)
             "#,
         )
-        .execute(&pool)
+        .execute(pool)
         .await?;
         println!("Added initial menu data");
     }
 
     // 检查是否已有用户数据
     let user_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?;
 
     // 如果没有数据，添加默认管理员账号
@@ -275,78 +286,185 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             "#,
         )
         .bind(&password_hash)
-        .execute(&pool)
+        .execute(pool)
         .await?;
         println!("Created admin user with password: admin123");
     }
 
     // 检查是否已有权限数据
     let permission_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM permissions")
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?;
 
     // 如果没有数据，添加初始权限
     if permission_count == 0 {
         println!("Adding initial permissions...");
         // 系统管理权限
-        sqlx::query(
+        let system_id = sqlx::query_scalar::<_, i64>(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
-            VALUES 
-                ('系统管理', 'system:manage', '系统管理相关权限', '#9C27B0', '#BA68C8')
+            INSERT INTO permissions (name, code, type_name, resource, action, sort, description, color_start, color_end)
+            VALUES ('系统管理', 'system', 'MENU', '/system', 'VIEW', 1, '系统管理相关权限', '#9C27B0', '#BA68C8')
+            RETURNING id
             "#,
         )
-        .execute(&pool)
+        .fetch_one(pool)
         .await?;
 
-        sqlx::query(
+        // 菜单管理
+        let menu_id = sqlx::query_scalar::<_, i64>(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
-            VALUES 
-                ('用户管理', 'user:manage', '用户的增删改查权限', '#1976D2', '#42A5F5')
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('菜单管理', 'system:menu', 'PAGE', '/system/menus', 'VIEW', ?, 1, '菜单的增删改查权限', '#FF5722', '#FF7043')
+            RETURNING id
             "#,
         )
-        .execute(&pool)
+        .bind(system_id)
+        .fetch_one(pool)
         .await?;
 
+        // 菜单管理API权限
         sqlx::query(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description)
             VALUES 
-                ('角色管理', 'role:manage', '角色的增删改查权限', '#388E3C', '#66BB6A')
+                ('查看菜单', 'system:menu:view', 'API', '/api/menus', 'GET', ?, 1, '查看菜单列表和详情'),
+                ('创建菜单', 'system:menu:create', 'API', '/api/menus', 'POST', ?, 2, '创建新菜单'),
+                ('编辑菜单', 'system:menu:edit', 'API', '/api/menus/*', 'PUT', ?, 3, '修改菜单信息'),
+                ('删除菜单', 'system:menu:delete', 'API', '/api/menus/*', 'DELETE', ?, 4, '删除菜单')
             "#,
         )
-        .execute(&pool)
+        .bind(menu_id)
+        .bind(menu_id)
+        .bind(menu_id)
+        .bind(menu_id)
+        .execute(pool)
         .await?;
 
-        sqlx::query(
+        // 用户管理
+        let user_id = sqlx::query_scalar::<_, i64>(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
-            VALUES 
-                ('菜单管理', 'menu:manage', '菜单的增删改查权限', '#FFA000', '#FFB74D')
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('用户管理', 'system:user', 'PAGE', '/system/users', 'VIEW', ?, 2, '用户的增删改查权限', '#1976D2', '#42A5F5')
+            RETURNING id
             "#,
         )
-        .execute(&pool)
+        .bind(system_id)
+        .fetch_one(pool)
         .await?;
 
+        // 用户管理API权限
         sqlx::query(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description)
             VALUES 
-                ('权限管理', 'permission:manage', '权限的增删改查权限', '#0097A7', '#26C6DA')
+                ('查看用户', 'system:user:view', 'API', '/api/users', 'GET', ?, 1, '查看用户列表和详情'),
+                ('创建用户', 'system:user:create', 'API', '/api/users', 'POST', ?, 2, '创建新用户'),
+                ('编辑用户', 'system:user:edit', 'API', '/api/users/*', 'PUT', ?, 3, '修改用户信息'),
+                ('删除用户', 'system:user:delete', 'API', '/api/users/*', 'DELETE', ?, 4, '删除用户')
             "#,
         )
-        .execute(&pool)
+        .bind(user_id)
+        .bind(user_id)
+        .bind(user_id)
+        .bind(user_id)
+        .execute(pool)
         .await?;
 
-        sqlx::query(
+        // 角色管理
+        let role_id = sqlx::query_scalar::<_, i64>(
             r#"
-            INSERT INTO permissions (name, code, description, color_start, color_end)
-            VALUES 
-                ('操作日志', 'operation-log:manage', '操作日志的查看和清空权限', '#5D4037', '#8D6E63')
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('角色管理', 'system:role', 'PAGE', '/system/roles', 'VIEW', ?, 3, '角色的增删改查权限', '#388E3C', '#66BB6A')
+            RETURNING id
             "#,
         )
-        .execute(&pool)
+        .bind(system_id)
+        .fetch_one(pool)
+        .await?;
+
+        // 角色管理API权限
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description)
+            VALUES 
+                ('查看角色', 'system:role:view', 'API', '/api/roles', 'GET', ?, 1, '查看角色列表和详情'),
+                ('创建角色', 'system:role:create', 'API', '/api/roles', 'POST', ?, 2, '创建新角色'),
+                ('编辑角色', 'system:role:edit', 'API', '/api/roles/*', 'PUT', ?, 3, '修改角色信息'),
+                ('删除角色', 'system:role:delete', 'API', '/api/roles/*', 'DELETE', ?, 4, '删除角色')
+            "#,
+        )
+        .bind(role_id)
+        .bind(role_id)
+        .bind(role_id)
+        .bind(role_id)
+        .execute(pool)
+        .await?;
+
+        // 权限管理
+        let perm_id = sqlx::query_scalar::<_, i64>(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('权限管理', 'system:permission', 'PAGE', '/system/permissions', 'VIEW', ?, 4, '权限的增删改查权限', '#0097A7', '#26C6DA')
+            RETURNING id
+            "#,
+        )
+        .bind(system_id)
+        .fetch_one(pool)
+        .await?;
+
+        // 权限管理API权限
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description)
+            VALUES 
+                ('查看权限', 'system:permission:view', 'API', '/api/permissions', 'GET', ?, 1, '查看权限列表和详情'),
+                ('创建权限', 'system:permission:create', 'API', '/api/permissions', 'POST', ?, 2, '创建新权限'),
+                ('编辑权限', 'system:permission:edit', 'API', '/api/permissions/*', 'PUT', ?, 3, '修改权限信息'),
+                ('删除权限', 'system:permission:delete', 'API', '/api/permissions/*', 'DELETE', ?, 4, '删除权限')
+            "#,
+        )
+        .bind(perm_id)
+        .bind(perm_id)
+        .bind(perm_id)
+        .bind(perm_id)
+        .execute(pool)
+        .await?;
+
+        // 操作日志
+        let log_id = sqlx::query_scalar::<_, i64>(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('操作日志', 'system:log', 'PAGE', '/system/operation-logs', 'VIEW', ?, 5, '操作日志的查看和清空权限', '#5D4037', '#8D6E63')
+            RETURNING id
+            "#,
+        )
+        .bind(system_id)
+        .fetch_one(pool)
+        .await?;
+
+        // 操作日志API权限
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description)
+            VALUES 
+                ('查看日志', 'system:log:view', 'API', '/api/operation-logs', 'GET', ?, 1, '查看操作日志列表'),
+                ('清空日志', 'system:log:clear', 'API', '/api/operation-logs', 'DELETE', ?, 2, '清空操作日志')
+            "#,
+        )
+        .bind(log_id)
+        .bind(log_id)
+        .execute(pool)
+        .await?;
+
+        // 个人信息
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, type_name, resource, action, parent_id, sort, description, color_start, color_end)
+            VALUES ('个人信息', 'system:profile', 'PAGE', '/profile', 'VIEW', ?, 6, '个人信息的查看和修改权限', '#795548', '#A1887F')
+            "#,
+        )
+        .bind(system_id)
+        .execute(pool)
         .await?;
 
         println!("Added initial permissions");
@@ -354,10 +472,10 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
 
     // 检查是否已有角色数据
     let role_count = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM roles")
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?;
 
-    // 如果没有数据，添加超级管理员角色
+    // 如果没有数据，添加级管理员角色
     if role_count == 0 {
         println!("Adding super admin role...");
         // 添加超级管理员角色
@@ -368,12 +486,12 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             RETURNING id
             "#,
         )
-        .fetch_one(&pool)
+        .fetch_one(pool)
         .await?;
 
         // 获取所有权ID
         let permission_ids = sqlx::query_scalar::<_, i64>("SELECT id FROM permissions")
-            .fetch_all(&pool)
+            .fetch_all(pool)
             .await?;
 
         // 为超级管理员分配所有权限
@@ -386,14 +504,14 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             )
             .bind(role_id)
             .bind(permission_id)
-            .execute(&pool)
+            .execute(pool)
             .await?;
         }
 
         // 为admin用户分配超级管理员角色
         let admin_id =
             sqlx::query_scalar::<_, i64>("SELECT id FROM users WHERE username = 'admin'")
-                .fetch_one(&pool)
+                .fetch_one(pool)
                 .await?;
 
         sqlx::query(
@@ -404,10 +522,10 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         )
         .bind(admin_id)
         .bind(role_id)
-        .execute(&pool)
+        .execute(pool)
         .await?;
         println!("Added super admin role and assigned to admin user");
     }
 
-    Ok(pool)
+    Ok(())
 }
