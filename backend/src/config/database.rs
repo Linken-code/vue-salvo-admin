@@ -74,6 +74,8 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             code TEXT NOT NULL UNIQUE,
             description TEXT,
             status INTEGER NOT NULL DEFAULT 1,
+            color_start TEXT,
+            color_end TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -91,6 +93,8 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
             name TEXT NOT NULL UNIQUE,
             code TEXT NOT NULL UNIQUE,
             description TEXT,
+            color_start TEXT,
+            color_end TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -287,18 +291,64 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         // 系统管理权限
         sqlx::query(
             r#"
-            INSERT INTO permissions (name, code, description)
+            INSERT INTO permissions (name, code, description, color_start, color_end)
             VALUES 
-                ('系统管理', 'system:manage', '系统管理相关权限'),
-                ('用户管理', 'user:manage', '用户的增删改查权限'),
-                ('角色管理', 'role:manage', '角色的增删改查权限'),
-                ('菜单管理', 'menu:manage', '菜单的增删改查权限'),
-                ('权限管理', 'permission:manage', '权限的增删改查权限'),
-                ('操作日志', 'operation-log:manage', '操作日志的查看和清空权限')
+                ('系统管理', 'system:manage', '系统管理相关权限', '#9C27B0', '#BA68C8')
             "#,
         )
         .execute(&pool)
         .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, description, color_start, color_end)
+            VALUES 
+                ('用户管理', 'user:manage', '用户的增删改查权限', '#1976D2', '#42A5F5')
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, description, color_start, color_end)
+            VALUES 
+                ('角色管理', 'role:manage', '角色的增删改查权限', '#388E3C', '#66BB6A')
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, description, color_start, color_end)
+            VALUES 
+                ('菜单管理', 'menu:manage', '菜单的增删改查权限', '#FFA000', '#FFB74D')
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, description, color_start, color_end)
+            VALUES 
+                ('权限管理', 'permission:manage', '权限的增删改查权限', '#0097A7', '#26C6DA')
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO permissions (name, code, description, color_start, color_end)
+            VALUES 
+                ('操作日志', 'operation-log:manage', '操作日志的查看和清空权限', '#5D4037', '#8D6E63')
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
         println!("Added initial permissions");
     }
 
@@ -321,7 +371,7 @@ pub async fn init_db() -> Result<SqlitePool, sqlx::Error> {
         .fetch_one(&pool)
         .await?;
 
-        // 获取所有权��ID
+        // 获取所有权ID
         let permission_ids = sqlx::query_scalar::<_, i64>("SELECT id FROM permissions")
             .fetch_all(&pool)
             .await?;

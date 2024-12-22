@@ -110,8 +110,8 @@ pub async fn create_role(req: &mut Request, res: &mut Response) {
     let status = role.status.unwrap_or(1);
     match sqlx::query_as::<_, Role>(
         r#"
-        INSERT INTO roles (name, code, description, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO roles (name, code, description, status, color_start, color_end)
+        VALUES (?, ?, ?, ?, ?, ?)
         RETURNING *
         "#,
     )
@@ -119,6 +119,8 @@ pub async fn create_role(req: &mut Request, res: &mut Response) {
     .bind(&role.code)
     .bind(&role.description)
     .bind(status)
+    .bind(&role.color_start)
+    .bind(&role.color_end)
     .fetch_one(pool)
     .await
     {
@@ -154,11 +156,14 @@ pub async fn update_role(req: &mut Request, res: &mut Response) {
 
     // 更新角色
     let result = sqlx::query(
-        "UPDATE roles SET name = ?, code = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE roles SET name = ?, code = ?, description = ?, status = ?, color_start = ?, color_end = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     )
     .bind(&role.name)
     .bind(&role.code)
     .bind(&role.description)
+    .bind(&role.status)
+    .bind(&role.color_start)
+    .bind(&role.color_end)
     .bind(id)
     .execute(pool)
     .await;
@@ -278,7 +283,7 @@ pub async fn update_role_permissions(req: &mut Request, res: &mut Response) {
         }
     };
 
-    // 删除现有���限
+    // 删除现有权限
     if let Err(e) = sqlx::query("DELETE FROM role_permissions WHERE role_id = ?")
         .bind(role_id)
         .execute(&mut *tx)

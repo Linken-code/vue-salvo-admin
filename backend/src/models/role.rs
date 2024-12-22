@@ -8,6 +8,8 @@ pub struct Role {
     pub code: String,
     pub description: Option<String>,
     pub status: i32,
+    pub color_start: Option<String>,
+    pub color_end: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -18,6 +20,8 @@ pub struct CreateRole {
     pub code: String,
     pub description: Option<String>,
     pub status: Option<i32>,
+    pub color_start: Option<String>,
+    pub color_end: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,6 +30,8 @@ pub struct UpdateRole {
     pub code: Option<String>,
     pub description: Option<String>,
     pub status: Option<i32>,
+    pub color_start: Option<String>,
+    pub color_end: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

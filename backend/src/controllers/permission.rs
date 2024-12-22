@@ -3,7 +3,7 @@ use serde_json::json;
 use sqlx::SqlitePool;
 
 use crate::controllers::user::PageResponse;
-use crate::models::{CreatePermission, Permission, UpdatePermission};
+use crate::models::{CreatePermissionRequest, Permission, UpdatePermissionRequest};
 
 #[handler]
 pub async fn get_permissions(req: &mut Request, res: &mut Response) {
@@ -90,7 +90,7 @@ pub async fn get_permissions(req: &mut Request, res: &mut Response) {
 
 #[handler]
 pub async fn create_permission(req: &mut Request, res: &mut Response) {
-    let permission: CreatePermission = match req.parse_json().await {
+    let permission: CreatePermissionRequest = match req.parse_json().await {
         Ok(permission) => permission,
         Err(e) => {
             res.status_code(StatusCode::BAD_REQUEST);
@@ -104,14 +104,16 @@ pub async fn create_permission(req: &mut Request, res: &mut Response) {
     let pool = req.extensions().get::<SqlitePool>().unwrap();
     match sqlx::query_as::<_, Permission>(
         r#"
-        INSERT INTO permissions (name, code, description)
-        VALUES (?, ?, ?)
+        INSERT INTO permissions (name, code, description, color_start, color_end)
+        VALUES (?, ?, ?, ?, ?)
         RETURNING *
         "#,
     )
     .bind(&permission.name)
     .bind(&permission.code)
     .bind(&permission.description)
+    .bind(&permission.color_start)
+    .bind(&permission.color_end)
     .fetch_one(pool)
     .await
     {
@@ -131,7 +133,7 @@ pub async fn create_permission(req: &mut Request, res: &mut Response) {
 #[handler]
 pub async fn update_permission(req: &mut Request, res: &mut Response) {
     let id = req.param::<i64>("id").unwrap();
-    let permission = match req.parse_json::<Permission>().await {
+    let permission = match req.parse_json::<UpdatePermissionRequest>().await {
         Ok(permission) => permission,
         Err(e) => {
             eprintln!("解析权限数据失败: {:?}", e);
@@ -147,11 +149,13 @@ pub async fn update_permission(req: &mut Request, res: &mut Response) {
 
     // 更新权限
     let result = sqlx::query(
-        "UPDATE permissions SET name = ?, code = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE permissions SET name = ?, code = ?, description = ?, color_start = ?, color_end = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
     )
     .bind(&permission.name)
     .bind(&permission.code)
     .bind(&permission.description)
+    .bind(&permission.color_start)
+    .bind(&permission.color_end)
     .bind(id)
     .execute(pool)
     .await;
@@ -168,7 +172,7 @@ pub async fn update_permission(req: &mut Request, res: &mut Response) {
             match updated_permission {
                 Ok(permission) => {
                     res.render(Json(json!({
-                        "message": "更新成功",
+                        "message": "更新���功",
                         "permission": permission
                     })));
                 }
